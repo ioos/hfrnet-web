@@ -28,7 +28,6 @@ const OIL_KML = "https://hfradar.ioos.us/hfrnet/assets/oil-platforms.kml";
 const API_URL = process.env.API_URL;
 const SUBDIRECTORY = process.env.SUBDIRECTORY;
 
-
 // Start with 16 hours back (16 * 60 * 60 * 1000 milliseconds)
 const hoursback = 60 * 60 * 16 * 1000;
 const now = new Date();
@@ -855,6 +854,7 @@ async function initMap() {
 
   map = new Map(document.getElementById("map"), {
     zoom: currentSettings["zm"],
+    mapId: "DEMO_MAP_ID",
     mapTypeId: "terrain",
     clickableIcons: false,
     mapTypeControl: true,
