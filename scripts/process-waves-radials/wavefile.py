@@ -43,7 +43,17 @@ class WaveFile(BaseFile):
                 table_type = "WVMT"
                 break
         if table_type is None:
-            logger.error("Table type WAVL WVM9 | WAVL WM11 | WAVL WVMT not defined")
+            found_pattern = re.compile(r'^\s*%TableType:\s+(.+)')
+            found = None
+            for line in self.file_data:
+                match = found_pattern.search(line)
+                if match is not None:
+                    found = match.group(1).strip()
+                    break
+            if found:
+                logger.error(f"Unsupported table type '{found}'")
+            else:
+                logger.error("No %TableType found in file")
             return None
 
         pattern = re.compile(r'^\s*[^%]')
