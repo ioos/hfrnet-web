@@ -148,14 +148,9 @@ def read_waves_row(row):
     if row["MWHT"] is None:
         return None
 
-    # Fill missing values if needed
-    if row["MWPD"] is None:
-        row["MWPD"] = 0
-    if row["WAVB"] is None:
-        row["WAVB"] = 0
-    if row["WNDB"] is None:
-        row["WNDB"] = 0
-
+    # Fill missing values if needed. row is a read-only RowMapping, so apply
+    # defaults here rather than mutating it (params can be NULL when CODAR
+    # reports them as not calculable).
     return {
         "lat": lat,
         "lon": lon,
@@ -163,7 +158,7 @@ def read_waves_row(row):
         "sta": row["sta"],
         "net": row["net"],
         "MWHT": row["MWHT"],
-        "MWPD": row["MWPD"],
-        "WAVB": row["WAVB"],
-        "WNDB": row["WNDB"],
+        "MWPD": row["MWPD"] if row["MWPD"] is not None else 0,
+        "WAVB": row["WAVB"] if row["WAVB"] is not None else 0,
+        "WNDB": row["WNDB"] if row["WNDB"] is not None else 0,
     }

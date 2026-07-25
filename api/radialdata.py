@@ -12,6 +12,7 @@ from config import config
 import time as time_module
 from utils import get_regions, last_day_of_month, df_to_geojson, read_waves_row
 from fastapi import FastAPI, APIRouter, HTTPException, Query, Request as FastAPIRequest
+from fastapi.middleware.cors import CORSMiddleware
 
 # from pydantic import model_validator
 import logging
@@ -42,6 +43,17 @@ from fastapi.responses import HTMLResponse
 #
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        o.strip() for o in config["cors"]["allowed_origins"].split(",") if o.strip()
+    ],
+    allow_credentials=False,
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
 radials_router = APIRouter()
 
 logger = logging.getLogger("uvicorn")
@@ -228,9 +240,7 @@ async def get_history(
 
 
 @radials_router.get("/waves")
-async def get_waves(
-    time: int = Query(None), callback: str = Query(config["urls"]["default_callback"])
-):
+async def get_waves(time: int = Query(None)):
     # TODO: Consider porting to SQLModel?
     sql = text(
         "SELECT s.sta, n.net, wf.time,wf.lat,wf.lon, wf.MWHT, wf.MWPD, wf.WAVB, wf.WNDB, wf.LOND, wf.LATD "
@@ -282,7 +292,7 @@ async def get_waves(
 
         geojson["features"].append(feature)
 
-    return f"{geojson}"
+    return geojson
 
 
 @radials_router.get("/waves/hist")
@@ -290,7 +300,6 @@ async def get_waves_history(
     site: str = Query(""),
     t0: float = Query(None),
     t1: float = Query(None),
-    callback: str = Query(config["urls"]["default_callback"]),
 ):
     """
     Query historical wave data for a given site and time range.
@@ -343,8 +352,6 @@ async def get_waves_history(
         }
         json_data.append(data)
 
-    if callback:
-        return f"{callback}({json_data})"
     return json_data
 
 
