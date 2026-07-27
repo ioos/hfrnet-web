@@ -152,9 +152,8 @@ async function getWavesData() {
   jqxhr = $.ajax({
     url: `${API_URL}/waves`,
     data: { time: currentSettings["time"] },
-    dataType: "jsonp",
+    dataType: "json",
     type: "GET",
-    contentType: "application/json; charset=utf-8",
     success: (results, status, xhr) => {
       results.features.forEach((feature) => {
         const coords = feature.geometry.coordinates;
@@ -1121,9 +1120,8 @@ function loadRadials(prod, time) {
       time: time,
       prod: prod,
     },
-    dataType: "jsonp",
+    dataType: "json",
     type: "GET",
-    contentType: "application/json; charset=utf-8",
     success: (results, status, xhr) => {
       verifyProductsResolutions(prod);
       drawRadials(results);
@@ -1164,9 +1162,8 @@ function loadRadialsBbox(bounds, prod, time) {
       time: time,
       prod: prod,
     },
-    dataType: "jsonp",
+    dataType: "json",
     type: "GET",
-    contentType: "application/json; charset=utf-8",
     success: (results, status, xhr) => {
       verifyProductsResolutions(prod);
       drawRadials(results);
