@@ -264,9 +264,10 @@ class WaveFile(BaseFile):
         metadata = self.get_wave_metadata()
 
         # For some reason some files include the unit in the value of the 'RangeResolutionKMeters' field, so we
-        # need to strip that off so that the float conversion doesn't break
-        new_rangeresolution = metadata['RangeResolutionKMeters'].split()[0]
-        metadata['RangeResolutionKMeters'] = new_rangeresolution
+        # need to strip that off so that the float conversion doesn't break. Some sites (e.g. FRDO, SOB2) omit
+        # the header entirely, in which case _check_float_value() will insert the column DEFAULT.
+        if 'RangeResolutionKMeters' in metadata:
+            metadata['RangeResolutionKMeters'] = metadata['RangeResolutionKMeters'].split()[0]
 
         if self.table_type == 'WM11' or 'WVMT':
             # WM11 tables also include the verbal name of the timezone, when we don't have space for that, so cut it off
