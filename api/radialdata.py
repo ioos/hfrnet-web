@@ -10,7 +10,13 @@ from config import config
 # TODO: several variable names conflict, consider better naming conventions
 #       or alias FastAPI parameter names for web requests
 import time as time_module
-from utils import get_regions, last_day_of_month, df_to_geojson, read_waves_row
+from utils import (
+    get_regions,
+    last_day_of_month,
+    df_to_geojson,
+    read_waves_row,
+    float_or_none,
+)
 from fastapi import FastAPI, APIRouter, HTTPException, Query, Request as FastAPIRequest
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -241,17 +247,53 @@ async def get_history(
 
 @radials_router.get("/waves")
 async def get_waves(time: int = Query(None)):
-    # TODO: Consider porting to SQLModel?
+    if time is None:
+        raise HTTPException(status_code=400, detail="time parameter is required.")
+
+    # Wave stations report on 10/30/60 minute cadences and files arrive with
+    # latency, so an exact timestamp match misses most stations. Instead:
+    #   - "stations": every site with any wavefiles row within the lookback
+    #     window of the selected time (the wave-enabled station set), plus its
+    #     most recent row in that window for coordinate fallback.
+    #   - "nearest": the data sentence with a valid MWHT closest to the
+    #     selected time, within +-match_window seconds.
+    # Stations without a nearest match are still returned, with null values,
+    # so the client can render a grey "no data" marker.
     sql = text(
-        "SELECT s.sta, n.net, wf.time,wf.lat,wf.lon, wf.MWHT, wf.MWPD, wf.WAVB, wf.WNDB, wf.LOND, wf.LATD "
-        "FROM hfradar.wavefiles wf "
-        "LEFT JOIN hfradar.site s on wf.site_id=s.site_id "
-        "LEFT JOIN hfradar.network n on wf.network_id = n.network_id "
-        "WHERE wf.time=:time"
+        "WITH stations AS ("
+        "    SELECT site_id, network_id, MAX(time) AS latest_time"
+        "    FROM hfradar.wavefiles"
+        "    WHERE time BETWEEN :time - :lookback AND :time + :lookback"
+        "    GROUP BY site_id, network_id"
+        "), nearest AS ("
+        "    SELECT site_id, network_id, time, lat, lon, MWHT, MWPD, WAVB, WNDB, LOND, LATD,"
+        "        ROW_NUMBER() OVER ("
+        "            PARTITION BY site_id, network_id ORDER BY ABS(time - :time)"
+        "        ) AS rn"
+        "    FROM hfradar.wavefiles"
+        "    WHERE time BETWEEN :time - :window AND :time + :window"
+        "        AND MWHT IS NOT NULL"
+        ") "
+        "SELECT s.sta, n.net, nr.time, nr.MWHT, nr.MWPD, nr.WAVB, nr.WNDB,"
+        "    COALESCE(nr.lat, fb.lat) AS lat, COALESCE(nr.lon, fb.lon) AS lon,"
+        "    COALESCE(nr.LATD, fb.LATD) AS LATD, COALESCE(nr.LOND, fb.LOND) AS LOND "
+        "FROM stations st "
+        "JOIN hfradar.wavefiles fb ON fb.site_id = st.site_id"
+        "    AND fb.network_id = st.network_id AND fb.time = st.latest_time "
+        "LEFT JOIN nearest nr ON nr.site_id = st.site_id"
+        "    AND nr.network_id = st.network_id AND nr.rn = 1 "
+        "LEFT JOIN hfradar.site s on st.site_id = s.site_id "
+        "LEFT JOIN hfradar.network n on st.network_id = n.network_id"
     )
 
+    params = {
+        "time": time,
+        "window": float(config["waves"]["match_window"]),
+        "lookback": float(config["waves"]["station_lookback"]),
+    }
+
     async with async_session() as session:
-        result = await session.execute(sql, {"time": time})
+        result = await session.execute(sql, params)
         rows = result.mappings().all()
     if rows is None:
         raise HTTPException(
@@ -269,7 +311,7 @@ async def get_waves(time: int = Query(None)):
     for row in rows:
         row_data = read_waves_row(row)
 
-        # if no row_data (likely because MWHT is missing), skip the row
+        # if no row_data (likely because coordinates are missing), skip the row
         if row_data is None:
             continue
 
@@ -278,11 +320,11 @@ async def get_waves(time: int = Query(None)):
             "properties": {
                 "site": row_data["sta"],
                 "net": row_data["net"],
-                "time": float(row_data["time"]),
-                "MWHT": float(row_data["MWHT"]),
-                "MWPD": float(row_data["MWPD"]),
-                "WAVB": float(row_data["WAVB"]),
-                "WNDB": float(row_data["WNDB"]),
+                "time": float_or_none(row_data["time"]),
+                "MWHT": float_or_none(row_data["MWHT"]),
+                "MWPD": float_or_none(row_data["MWPD"]),
+                "WAVB": float_or_none(row_data["WAVB"]),
+                "WNDB": float_or_none(row_data["WNDB"]),
             },
             "geometry": {
                 "type": "Point",
@@ -339,16 +381,18 @@ async def get_waves_history(
     json_data = []
     for row in rows:
         row_data = read_waves_row(row)
-        if row_data is None:
+        # skip rows with missing coordinates or wave height (999.00 sentinels
+        # are stored as NULL) to keep the history plot to valid measurements
+        if row_data is None or row_data["MWHT"] is None:
             continue
         data = {
             "time": float(row_data["time"]),
             "lat": row_data["lat"],
             "lon": row_data["lon"],
             "MWHT": float(row_data["MWHT"]),
-            "WAVB": float(row_data["WAVB"]),
-            "WNDB": float(row_data["WNDB"]),
-            "MWPD": float(row_data["MWPD"]),
+            "WAVB": float(row_data["WAVB"]) if row_data["WAVB"] is not None else 0,
+            "WNDB": float(row_data["WNDB"]) if row_data["WNDB"] is not None else 0,
+            "MWPD": float(row_data["MWPD"]) if row_data["MWPD"] is not None else 0,
         }
         json_data.append(data)
 

@@ -122,35 +122,42 @@ def df_to_geojson(geo_df, properties, product, time):
     return geo_dict
 
 
+def float_or_none(value):
+    """Converts a value to float, passing None through unchanged."""
+    return float(value) if value is not None else None
+
+
+def _read_waves_coord(preferred, fallback):
+    """Picks a coordinate value, preferring the data-row value (LATD/LOND) over
+    the file-header value (lat/lon) unless it is missing or zero.
+
+    :return: float coordinate, or None if both values are missing
+    """
+    if preferred is not None and float(preferred) != 0:
+        return float(preferred)
+    if fallback is not None:
+        return float(fallback)
+    return None
+
+
 def read_waves_row(row):
     """Reads/parses a row from the waves database
 
+    Wave values can be NULL either because CODAR reported them as not
+    calculable (999.00 sentinels are stored as NULL) or because the row is a
+    station placeholder with no data sentence near the requested time. NULLs
+    are passed through so callers can render them as missing (NaN).
+
     :param row: row from waves database
-    :return: tuple containing needed data from the row in the waves database, None if wave height is missing
+    :return: dict containing needed data from the row, None if coordinates are missing
     """
-    if row["LATD"] is not None:
-        if float(row["LATD"]) == 0:
-            lat = float(row["lat"])
-        else:
-            lat = float(row["LATD"])
-    else:
-        lat = float(row["lat"])
+    lat = _read_waves_coord(row["LATD"], row["lat"])
+    lon = _read_waves_coord(row["LOND"], row["lon"])
 
-    if row["LOND"] is not None:
-        if float(row["LOND"]) == 0:
-            lon = float(row["lon"])
-        else:
-            lon = float(row["LOND"])
-    else:
-        lon = float(row["lon"])
-
-    # if MWHT is missing, skip the entire row cause that's the wave height
-    if row["MWHT"] is None:
+    # without coordinates there is nothing to place on the map
+    if lat is None or lon is None:
         return None
 
-    # Fill missing values if needed. row is a read-only RowMapping, so apply
-    # defaults here rather than mutating it (params can be NULL when CODAR
-    # reports them as not calculable).
     return {
         "lat": lat,
         "lon": lon,
@@ -158,7 +165,7 @@ def read_waves_row(row):
         "sta": row["sta"],
         "net": row["net"],
         "MWHT": row["MWHT"],
-        "MWPD": row["MWPD"] if row["MWPD"] is not None else 0,
-        "WAVB": row["WAVB"] if row["WAVB"] is not None else 0,
-        "WNDB": row["WNDB"] if row["WNDB"] is not None else 0,
+        "MWPD": row["MWPD"],
+        "WAVB": row["WAVB"],
+        "WNDB": row["WNDB"],
     }
