@@ -52,7 +52,8 @@ def get_most_recent_files(files, count=2):
     return sorted_files[:count]
 
 
-def process_file(s3_key, s3_obj, bucket, tracker, stats, s3_filesystem, acq_db, dry_run=False):
+def process_file(s3_key, s3_obj, bucket, tracker, stats, s3_filesystem, acq_db, dry_run=False,
+                 retry_skipped=False):
     """Process a single file through the acquisition pipeline (in-process).
     
     :param s3_key: S3 object key
@@ -63,6 +64,7 @@ def process_file(s3_key, s3_obj, bucket, tracker, stats, s3_filesystem, acq_db, 
     :param s3_filesystem: Shared s3fs.S3FileSystem instance
     :param acq_db: Shared DataBase instance for acquisition inserts
     :param dry_run: If True, don't actually process
+    :param retry_skipped: If True, reprocess files previously marked as skipped
     :return: True if successful, False otherwise
     """
     filename = os.path.basename(s3_key)
@@ -73,7 +75,7 @@ def process_file(s3_key, s3_obj, bucket, tracker, stats, s3_filesystem, acq_db, 
     stats.total_files += 1
     
     # Check if already processed or skipped
-    if tracker.check_file_processed(s3_key, s3_etag):
+    if tracker.check_file_processed(s3_key, s3_etag, retry_skipped=retry_skipped):
         try:
             with tracker.connection.cursor() as cursor:
                 sql = f"""
@@ -167,6 +169,8 @@ Examples:
   %(prog)s --months 3               Process last 3 months for all sites
   %(prog)s --site RAGG --months 3   Process last 3 months for RAGG only
   %(prog)s --all --dry-run          Preview processing all files
+  %(prog)s --site WOOD --month 2026-07 --retry-skipped
+                                    Reprocess WOOD files previously marked as skipped
 
 Environment Variables Required:
   AWS_ACCESS_KEY_ID              AWS access key
@@ -193,6 +197,8 @@ Environment Variables Required:
                         help='Process all available months and all files for each site')
     parser.add_argument('--dry-run', action='store_true',
                         help='Show what would be processed without actually processing')
+    parser.add_argument('--retry-skipped', action='store_true',
+                        help='Reprocess files previously marked as skipped/invalid')
     
     args = parser.parse_args()
     
@@ -227,6 +233,9 @@ Environment Variables Required:
     
     if args.dry_run:
         logging.info("DRY RUN MODE - No files will be processed")
+    
+    if args.retry_skipped:
+        logging.info("Retrying previously skipped files")
     
     if args.site:
         logging.info(f"Filtering to site: {args.site}")
@@ -387,6 +396,7 @@ Environment Variables Required:
                                 s3_filesystem,
                                 acq_db,
                                 dry_run=args.dry_run,
+                                retry_skipped=args.retry_skipped,
                             )
     
     except KeyboardInterrupt:

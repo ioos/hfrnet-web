@@ -109,19 +109,22 @@ class FileProcessingTracker:
             logging.error(f"Database health check failed: {e}")
             return False
     
-    def check_file_processed(self, s3_key, s3_etag):
+    def check_file_processed(self, s3_key, s3_etag, retry_skipped=False):
         """Check if a file has already been processed or should be skipped.
         
         :param s3_key: S3 object key
         :param s3_etag: S3 ETag for the file
-        :return: True if already processed (success or skipped), False otherwise
+        :param retry_skipped: If True, only 'success' is treated as final so
+            files previously marked 'skipped' will be reprocessed
+        :return: True if already processed, False otherwise
         """
         try:
+            statuses = "'success'" if retry_skipped else "'success', 'skipped'"
             with self.connection.cursor() as cursor:
                 sql = f"""
                     SELECT status FROM {self.table_name}
                     WHERE s3_key = %s AND s3_etag = %s 
-                    AND status IN ('success', 'skipped')
+                    AND status IN ({statuses})
                 """
                 cursor.execute(sql, (s3_key, s3_etag))
                 result = cursor.fetchone()

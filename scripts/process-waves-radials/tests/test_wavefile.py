@@ -45,6 +45,55 @@ class TestWaveFile(unittest.TestCase):
             '%TableEnd: \n',
         ]
 
+        # WM12 shares the base column layout with WVM9, so mirror that fixture
+        self.minimum_wm12_table = [
+            '%CTF: 1.00\n',
+            '%Site: FORT\n',
+            '%TimeStamp: 2025 05 13  06 00 00\n',
+            '%TimeZone: "UTC" +0.000 0\n',
+            '%Origin: 39.3783667  -74.3990167\n',
+            '%TableType: WAVL WM12\n',
+            '%TableColumns: 3\n',
+            '%TableColumnTypes: COL1 COL2 COL3\n',
+            '%TableRows: 4\n',
+            ' 1 2 3\n',
+            ' 4 5 6\n',
+            ' 7 nan 999.00\n',
+            ' 8 -999.00 1080.0\n',
+            '%TableEnd: \n',
+        ]
+
+        # WM13 adds wind-wave/swell partition columns like WM11, so mirror that fixture
+        self.minimum_wm13_table = [
+            '%CTF: 1.00\n',
+            '%Site: FORT\n',
+            '%TimeStamp: 2025 05 13  06 00 00\n',
+            '%TimeZone: "UTC" +0.000 0\n',
+            '%Origin: 39.3783667  -74.3990167\n',
+            '%TableType: WAVL WM13\n',
+            '%TableColumns: 3\n',
+            '%TableColumnTypes: COL1 COL2 COL3\n',
+            ' 1 2 3\n',
+            ' 4 5 6\n',
+            ' 7 nan 999.00\n',
+            ' 8 -999.00 1080.0\n',
+            '%TableEnd: \n',
+        ]
+
+        # unsupported table type should be rejected
+        self.unsupported_table = [
+            '%CTF: 1.00\n',
+            '%Site: FORT\n',
+            '%TimeStamp: 2025 05 13  06 00 00\n',
+            '%TimeZone: "UTC" +0.000 0\n',
+            '%Origin: 39.3783667  -74.3990167\n',
+            '%TableType: WAVL WM14\n',
+            '%TableColumns: 3\n',
+            '%TableColumnTypes: COL1 COL2 COL3\n',
+            ' 1 2 3\n',
+            '%TableEnd: \n',
+        ]
+
         # 'bad/garbage data' table used for testing (missing tablecolumns and tablecolumntypes)
         self.bad_data = [
             '%this is\n',
@@ -88,14 +137,48 @@ class TestWaveFile(unittest.TestCase):
             'timestamp': 1746057600,
         }, self.bad_data, 1746057600)
 
+        self.f4 = WaveFile({
+            'filename': 'WVLM_BIGC_2025_05_01_0000.wls',
+            'filetype': 'wave',
+            'site': 'BIGC',
+            'affiliation': 'CODAR',
+            'year': '2025',
+            'month': '05',
+            'timestamp': 1746057600,
+        }, self.minimum_wm12_table, 1746057600)
+
+        self.f5 = WaveFile({
+            'filename': 'WVLM_BIGC_2025_05_01_0000.wls',
+            'filetype': 'wave',
+            'site': 'BIGC',
+            'affiliation': 'CODAR',
+            'year': '2025',
+            'month': '05',
+            'timestamp': 1746057600,
+        }, self.minimum_wm13_table, 1746057600)
+
+        self.f6 = WaveFile({
+            'filename': 'WVLM_BIGC_2025_05_01_0000.wls',
+            'filetype': 'wave',
+            'site': 'BIGC',
+            'affiliation': 'CODAR',
+            'year': '2025',
+            'month': '05',
+            'timestamp': 1746057600,
+        }, self.unsupported_table, 1746057600)
+
     """file validation tests"""
     def test_valid_wavl_table(self):
         """Test valid_wavl_table method on both valid and invalid table"""
         assert self.f1.valid_wavl_table() == 'WVM9'
         assert self.f2.valid_wavl_table() == 'WM11'
+        assert self.f4.valid_wavl_table() == 'WM12'
+        assert self.f5.valid_wavl_table() == 'WM13'
 
         # bad table should return None
         assert self.f3.valid_wavl_table() is None
+        # unsupported (but well-formed) table type should return None
+        assert self.f6.valid_wavl_table() is None
 
     """Table/data retrieval tests"""
     def test_get_process_info(self):
