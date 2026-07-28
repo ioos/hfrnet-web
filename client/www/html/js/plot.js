@@ -84,12 +84,9 @@ function wavePlots(){
 
   $.ajax({
     url:url,
-    contentType: "text/csv",
     async: true,
     data: { site: site, time: time },
-    dataType: "jsonp",
-    //jsonpCallback: "jQuery341011373422534791433_1628535719196"
-    jsonpCallback: "eqfeed_callback"
+    dataType: "json"
   })
   .done( function( data ){
     var mwht_data = [];
@@ -272,12 +269,9 @@ function radialPlots(){
 
   $.ajax({
     url:url,
-    contentType: "text/csv",
     async: true,
     data: { lat1: lat1, lon1: lon1, time: time, prod: prod },
-    dataType: "jsonp",
-    //jsonpCallback: "jQuery341011373422534791433_1628535719196"
-    jsonpCallback: "eqfeed_callback"
+    dataType: "json"
   })
   .done( function( data ){
     var magni_data = [];

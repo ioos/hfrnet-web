@@ -152,18 +152,25 @@ async function getWavesData() {
   jqxhr = $.ajax({
     url: `${API_URL}/waves`,
     data: { time: currentSettings["time"] },
-    dataType: "jsonp",
+    dataType: "json",
     type: "GET",
-    contentType: "application/json; charset=utf-8",
     success: (results, status, xhr) => {
       results.features.forEach((feature) => {
         const coords = feature.geometry.coordinates;
         const latLng = new google.maps.LatLng(coords[1], coords[0]);
-        const { site, net, MWHT, MWPD, WAVB, WNDB } = feature.properties;
-        const iconcolor = "#" + colorbarWaves.colourAt(MWHT);
+        const { site, net, time, MWHT, MWPD, WAVB, WNDB } = feature.properties;
+
+        // A null MWHT means the station had no valid data sentence within the
+        // match window of the selected time: grey marker with NaN values.
+        const hasData = MWHT !== null && MWHT !== undefined;
+        const iconcolor = hasData
+          ? "#" + colorbarWaves.colourAt(MWHT)
+          : "#cccccc";
+        const fmtValue = (value, suffix) =>
+          value !== null && value !== undefined ? `${value}${suffix}` : "NaN";
         const iconSvgString = `<svg version="1.1" width="30" height="30" xmlns="http://www.w3.org/2000/svg">
           <circle cx="15" cy="15" r="15" fill="${iconcolor}" fill-opacity=".7" stroke="white"/>
-          <text x="15" y="18" font-size="10" text-anchor="middle" fill="black">${MWHT}</text>
+          <text x="15" y="18" font-size="10" text-anchor="middle" fill="black">${hasData ? MWHT : "NaN"}</text>
         </svg>`;
         const parser = new DOMParser();
         const iconSvg = parser.parseFromString(
@@ -174,7 +181,18 @@ async function getWavesData() {
           position: latLng,
           map: map,
           content: iconSvg,
+          // keep NaN markers below markers with data when circles overlap
+          zIndex: hasData ? 1 : 0,
         });
+
+        // Show the data sentence's actual measurement timestamp; fall back to
+        // the selected time with a note when no data was found nearby.
+        const timeHtml =
+          time !== null && time !== undefined
+            ? `${getDateTimeFromEpoch(time * 1000, "UTC", 0)}<br>
+              ${getDateTimeFromEpoch(time * 1000, getSelectedTimezone(), 0)}`
+            : `${getDateTimeFromEpoch(currentSettings["time"] * 1000, "UTC", 0)}<br>
+              (no data within &plusmn;60 min)`;
 
         const content = `<div class='iw'>
           Station ID: ${site}<br />
@@ -183,15 +201,14 @@ async function getWavesData() {
           <div style="display: flex; align-items: flex-start;">
             <div style="width: 40px;"><b>Time:</b></div>
             <div id="iw-time-display" style="text-align: left;">
-              ${getDateTimeFromEpoch(currentSettings["time"] * 1000, "UTC", 0)}<br>
-              ${getDateTimeFromEpoch(currentSettings["time"] * 1000, getSelectedTimezone(), 0)}
+              ${timeHtml}
             </div>
           </div>
           <fieldset><legend>Wave Data</legend>
-            Height: ${MWHT} m<br />
-            Period: ${MWPD} seconds<br />
-            Wave Direction: ${WAVB}°<br />
-            Wind Direction: ${WNDB}°
+            Height: ${fmtValue(MWHT, " m")}<br />
+            Period: ${fmtValue(MWPD, " seconds")}<br />
+            Wave Direction: ${fmtValue(WAVB, "°")}<br />
+            Wind Direction: ${fmtValue(WNDB, "°")}
           </fieldset><br />
           <button type='button' class='btn btn-primary' id='liveToastBtn'>Time History</button>
         </div>`;
@@ -1121,9 +1138,8 @@ function loadRadials(prod, time) {
       time: time,
       prod: prod,
     },
-    dataType: "jsonp",
+    dataType: "json",
     type: "GET",
-    contentType: "application/json; charset=utf-8",
     success: (results, status, xhr) => {
       verifyProductsResolutions(prod);
       drawRadials(results);
@@ -1164,9 +1180,8 @@ function loadRadialsBbox(bounds, prod, time) {
       time: time,
       prod: prod,
     },
-    dataType: "jsonp",
+    dataType: "json",
     type: "GET",
-    contentType: "application/json; charset=utf-8",
     success: (results, status, xhr) => {
       verifyProductsResolutions(prod);
       drawRadials(results);

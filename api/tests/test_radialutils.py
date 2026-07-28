@@ -3,11 +3,11 @@ import configparser
 import pandas as pd
 
 from utils import (get_regions, find_closest, bounding_boxes_intersect,
-                   last_day_of_month, df_to_geojson)
+                   last_day_of_month, df_to_geojson, read_waves_row,
+                   float_or_none)
 from datetime import datetime, timezone
 import geopandas as gpd
 from shapely.geometry import Point
-from flask import request
 
 class TestRadialUtils(unittest.TestCase):
     """Test util functions needed for radialdata API endpoints"""
@@ -75,19 +75,19 @@ class TestRadialUtils(unittest.TestCase):
     def test_get_regions(self):
         """Tests get_regions and get_us_regions with various bounding boxes"""
 
-        q = get_regions(73, -170, 13, -49, self.test_config)
+        q = get_regions(73, -170, 13, -49)
         # test config default bbox to make sure all test_config regions are returned
         assert set(q) == {'AKNS', 'GAK', 'GLNA', 'USWC', 'USEGC', 'USHI', 'PRVI'}
 
-        q = get_regions(70, -170, 60, -160, self.test_config)
+        q = get_regions(70, -170, 60, -160)
         # should return AKNS and GAK
         assert set(q) == {'AKNS', 'GAK'}
 
-        q = get_regions(70, -50, 20, -30, self.test_config)
+        q = get_regions(70, -50, 20, -30)
         # should return no regions, but lat of input bbox contains lats of all regions
         assert set(q) == set({})
 
-        q = get_regions(10, -170, 0, -49, self.test_config)
+        q = get_regions(10, -170, 0, -49)
         # should return no regions, but lon of input bbox contains lons of all regions
         assert set(q) == set({})
 
@@ -113,7 +113,7 @@ class TestRadialUtils(unittest.TestCase):
     def test_df_to_geojson(self):
         """Tests dataframe to geojson using the simple test dataframe"""
 
-        q = df_to_geojson(self.test_df, ['head', 'magni', 'u', 'v'], time='1596510000', prod='a_6km')
+        q = df_to_geojson(self.test_df, ['head', 'magni', 'u', 'v'], time='1596510000', product='a_6km')
         assert q == {'type': 'FeatureCollection', 'product': 'a_6km', 'time': '1596510000', 'features':
             [{'type': 'Feature', 'properties': {'head': 30, 'magni': 1, 'u': 0.1, 'v': -0.1},
               'geometry': {'type': 'Point', 'coordinates': (-155.0, 19.0)}},
@@ -121,6 +121,85 @@ class TestRadialUtils(unittest.TestCase):
               'geometry': {'type': 'Point', 'coordinates': (-154.0, 20)}},
              {'type': 'Feature', 'properties': {'head': 90, 'magni': 3, 'u': 0.3, 'v': -0.3},
               'geometry': {'type': 'Point', 'coordinates': (-153.0, 21.0)}}]}
+
+
+    @staticmethod
+    def _waves_row(**overrides):
+        """Builds a full waves DB row (as returned by the /waves query), with overrides"""
+        row = {
+            'sta': 'BIGC',
+            'net': 'CeNCOOS',
+            'time': 1785247200.0,
+            'lat': 36.7,
+            'lon': -122.7,
+            'LATD': 36.7070242,
+            'LOND': -122.7142876,
+            'MWHT': 1.96,
+            'MWPD': 8.0,
+            'WAVB': 317.0,
+            'WNDB': 312.0,
+        }
+        row.update(overrides)
+        return row
+
+
+    def test_read_waves_row(self):
+        """Tests read_waves_row value passthrough and coordinate preference"""
+
+        q = read_waves_row(self._waves_row())
+        # data-row coordinates (LATD/LOND) preferred over header lat/lon
+        assert q == {
+            'lat': 36.7070242,
+            'lon': -122.7142876,
+            'time': 1785247200.0,
+            'sta': 'BIGC',
+            'net': 'CeNCOOS',
+            'MWHT': 1.96,
+            'MWPD': 8.0,
+            'WAVB': 317.0,
+            'WNDB': 312.0,
+        }
+
+        q = read_waves_row(self._waves_row(LATD=0, LOND=0))
+        # zero LATD/LOND means missing; fall back to header lat/lon
+        assert q['lat'] == 36.7 and q['lon'] == -122.7
+
+        q = read_waves_row(self._waves_row(LATD=None, LOND=None))
+        # NULL LATD/LOND also falls back to header lat/lon
+        assert q['lat'] == 36.7 and q['lon'] == -122.7
+
+
+    def test_read_waves_row_null_values(self):
+        """Tests that NULL wave values pass through instead of dropping the row / zero-filling"""
+
+        q = read_waves_row(self._waves_row(MWHT=None, MWPD=None, WAVB=None,
+                                           WNDB=None, time=None))
+        # station placeholder rows (no data sentence near the selected time)
+        # are kept so the client can render a grey NaN marker
+        assert q is not None
+        assert q['MWHT'] is None
+        assert q['MWPD'] is None
+        assert q['WAVB'] is None
+        assert q['WNDB'] is None
+        assert q['time'] is None
+        assert q['lat'] == 36.7070242 and q['lon'] == -122.7142876
+
+        q = read_waves_row(self._waves_row(MWPD=None, WNDB=None))
+        # partial NULLs pass through as None (not fabricated as 0)
+        assert q['MWHT'] == 1.96 and q['MWPD'] is None
+        assert q['WAVB'] == 317.0 and q['WNDB'] is None
+
+        q = read_waves_row(self._waves_row(lat=None, lon=None, LATD=None, LOND=None))
+        # rows without any usable coordinates cannot be placed on the map
+        assert q is None
+
+
+    def test_float_or_none(self):
+        """Tests float conversion helper used for waves feature serialization"""
+
+        assert float_or_none(None) is None
+        assert float_or_none('1.5') == 1.5
+        assert float_or_none(2) == 2.0
 
 
     def test_find_closest(self):
