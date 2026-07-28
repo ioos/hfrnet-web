@@ -7,6 +7,11 @@ logger = logging.getLogger(__name__)
 
 class WaveFile(BaseFile):
 
+    # WAVL table types this processor knows how to parse. WVM9/WVMT/WM12 share the
+    # base column layout; WM11/WM13 add wind-wave/swell partition columns. All are
+    # parsed identically since column mapping is driven by %TableColumnTypes.
+    SUPPORTED_TABLE_TYPES = ('WVM9', 'WM11', 'WVMT', 'WM12', 'WM13')
+
     def __init__(self, file_info, file_data, timestamp):
         """The constructor for the WaveFile class.
 
@@ -20,30 +25,26 @@ class WaveFile(BaseFile):
         self.table_type = ''
 
     def valid_wavl_table(self):
-        """Checks for a valid "WAVL WVM9" table or a valid "WAVL WM11" table in the file.
+        """Checks for a valid, supported "WAVL" wave table in the file.
 
         :param file_data: file data as list of strings, where each element is a line from the file
-        :return: "WVM9" | "WM11" | None
+        :return: one of WaveFile.SUPPORTED_TABLE_TYPES (e.g. "WVM9", "WM11", "WM12") | None
         """
-        wvm9_pattern = re.compile(r'^\s*%TableType:\s+WAVL\s+WVM9')
-        wm11_pattern = re.compile(r'^\s*%TableType:\s+WAVL\s+WM11')
-        wvmt_pattern = re.compile(r'^\s*%TableType:\s+WAVL\s+WVMT')
+        wavl_pattern = re.compile(r'^\s*%TableType:\s+WAVL\s+(\w+)')
         table_type = None
+        found = None
         for line in self.file_data:
-            wvm9 = wvm9_pattern.search(line)
-            wm11 = wm11_pattern.search(line)
-            wvmt = wvmt_pattern.search(line)
-            if wvm9 is not None:
-                table_type = "WVM9"
-                break
-            if wm11 is not None:
-                table_type = "WM11"
-                break
-            if wvmt is not None:
-                table_type = "WVMT"
+            match = wavl_pattern.search(line)
+            if match is not None:
+                found = match.group(1).strip()
+                if found in self.SUPPORTED_TABLE_TYPES:
+                    table_type = found
                 break
         if table_type is None:
-            logger.error("Table type WAVL WVM9 | WAVL WM11 | WAVL WVMT not defined")
+            if found:
+                logger.error(f"Unsupported table type 'WAVL {found}'")
+            else:
+                logger.error("No WAVL %TableType found in file")
             return None
 
         pattern = re.compile(r'^\s*[^%]')
@@ -123,16 +124,12 @@ class WaveFile(BaseFile):
         return True
 
     def get_wavl_data(self):
-        """Gets the data from the 'WAVL WVM9' table.
+        """Gets the data from the WAVL wave table matching this file's table type.
   
         :return: array of dicts with keys being the column type (TIME,AMP1...) and values being the data
         """
-        if self.table_type == 'WVM9':
-            return self._get_table_data("%TableType: WAVL WVM9", "%TableEnd:")
-        elif self.table_type == 'WM11':
-            return self._get_table_data("%TableType: WAVL WM11", "%TableEnd:")
-        elif self.table_type == 'WVMT':
-            return self._get_table_data("%TableType: WAVL WVMT", "%TableEnd:")
+        if self.table_type in self.SUPPORTED_TABLE_TYPES:
+            return self._get_table_data(f"%TableType: WAVL {self.table_type}", "%TableEnd:")
         else:
             logger.error('table_type not set, please use validate_file() before invoking get_wavl_data()')
             return []
@@ -267,9 +264,10 @@ class WaveFile(BaseFile):
         metadata = self.get_wave_metadata()
 
         # For some reason some files include the unit in the value of the 'RangeResolutionKMeters' field, so we
-        # need to strip that off so that the float conversion doesn't break
-        new_rangeresolution = metadata['RangeResolutionKMeters'].split()[0]
-        metadata['RangeResolutionKMeters'] = new_rangeresolution
+        # need to strip that off so that the float conversion doesn't break. Some sites (e.g. FRDO, SOB2) omit
+        # the header entirely, in which case _check_float_value() will insert the column DEFAULT.
+        if 'RangeResolutionKMeters' in metadata:
+            metadata['RangeResolutionKMeters'] = metadata['RangeResolutionKMeters'].split()[0]
 
         if self.table_type == 'WM11' or 'WVMT':
             # WM11 tables also include the verbal name of the timezone, when we don't have space for that, so cut it off
