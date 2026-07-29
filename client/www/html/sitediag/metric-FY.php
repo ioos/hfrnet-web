@@ -252,7 +252,7 @@ Calculation: % Uptime = # of Operational Radial Files/# of Hours in reporting pe
 <p>
 The percent uptime is calculated by dividing the number of operational radial files reported to the HFRNet by the total number of hours in a given reporting period.  An operational radial file is defined as an HF radar data file where the number of observed radial solutions meets or exceeds a nominal number of radial solutions (300) and the file was reported within (25) hours of the observation. </p> 
 <p>
-Note:  there are a small number of sites (about 6) with topographic barriers to the transmitted radar signal cause a diminished coverage area such that the site would never be able to reach 300 points per hour.  These sites must only meet a 200 point threshold.  There is an even smaller set of sites (currently only 4) having severe limitations whose threshold is only 75 points.
+Note:  there are a small number of sites (about 6) with topographic barriers to the transmitted radar signal cause a diminished coverage area such that the site would never be able to reach 300 points per hour.  These sites must only meet a 200 point threshold.  There is an even smaller set of sites (currently only 4) having severe limitations whose threshold is only 50 points.
 </p>
 
 <p>
