@@ -75,7 +75,7 @@ if ($subdirectory === false || $subdirectory === '') {
       <li class="nav-item dropdown">
         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Documents</a>
         <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-          <li><a class="dropdown-item" target="_blank" href="documents/HFRNet_RTV-NetCDF.pdf"> HFRNet RTV NetCDF Description</a></li>
+          <li><a class="dropdown-item" target="_blank" href="documents/HFRNet_RTV-NetCDF-2026.pdf"> HFRNet RTV NetCDF Description</a></li>
           <li><a class="dropdown-item" target="_blank" href="documents/HFRNet_QC-RTVproc.pdf">HFRNet RTV QC</a></li>
           <li><a class="dropdown-item" target="_blank" href="documents/HFRNet_RTVgrids_20060127.pdf"> HFRNet RTV Grid Development</a></li>
           <li><a class="dropdown-item" target="_blank" href="documents/HFRNet_Radial_NetCDF.pdf"> HFRNet Radial NetCDF Description</a></li>
