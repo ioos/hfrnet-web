@@ -84,7 +84,7 @@ if ($subdirectory === false || $subdirectory === '') {
           <li><a class="dropdown-item" target="_blank" href="documents/principles.pdf"> Principles of Operation</a></li>
           <li><a class="dropdown-item" target="_blank" href="documents/specifications.pdf"> Radiated Signal Specifications</a></li>
           <li><a class="dropdown-item" target="_blank" href="documents/radFileFormats_20050408.pdf"> CODAR File Formats</a></li>
-          <li><a class="dropdown-item" target="_blank" href="documents/GNOME_data_formats.pdf"> GNOME Data Formats</a></li>
+          <li><a class="dropdown-item" target="_blank" href="https://gnome.orr.noaa.gov/doc/pygnome/file_formats/index.html"> GNOME Data Formats</a></li>
           <li><a class="dropdown-item" target="_blank" href="documents/HFRNet_WERA_LonLatUV_RDL.pdf"> WERA File Formats</a></li>
         </ul>
       </li>
