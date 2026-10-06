@@ -59,6 +59,7 @@ if ($subdirectory === false || $subdirectory === '') {
           <li><a target="_blank" href="https://dods.ndbc.noaa.gov/thredds/catalog/hfradar.html" class="dropdown-item">Data Access via NDBC THREDDS Server</a></li>
           <li><a target="_blank" href="https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:IOOS-HFRadarRadial" class="dropdown-item">NCEI Radial Archive</a></li>
           <li><a target="_blank" href="https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:IOOS-HFRadarRTVector" class="dropdown-item">NCEI RTV (Total) Archive</a></li>
+          <li><a target="_blank" rel="noopener" href="https://ioos-hfradar.axds.co/" class="dropdown-item">HFR Range Series Archive</a></li>
           <li><a target="_blank" href="https://hfradar.ioos.us/radials-erddap/erddap/index.html" class="dropdown-item">IOOS Radial & Waves ERDDAP Server</a></li>
         </ul>
       </li>
