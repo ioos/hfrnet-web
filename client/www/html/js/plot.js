@@ -77,6 +77,10 @@ function hideLoadingSpinner() {
   }
 }
 
+function sortByTime(points) {
+  return points.sort((a, b) => a[0] - b[0]);
+}
+
 function wavePlots(){
   const url = `${process.env.API_URL}/waves/hist`;
 
@@ -112,6 +116,10 @@ function wavePlots(){
         mwpd_data.unshift( [timestamp,mwpd] );
 
       });
+      sortByTime(mwht_data);
+      sortByTime(wavb_data);
+      sortByTime(wndb_data);
+      sortByTime(mwpd_data);
     }
     // MWHT Plot
     var options = {
@@ -307,6 +315,10 @@ function radialPlots(){
         ew_data.unshift( [timestamp,u*100] );
 
       });
+      sortByTime(magni_data);
+      sortByTime(direction_data);
+      sortByTime(ns_data);
+      sortByTime(ew_data);
     }
 
     // Magnitude Plot

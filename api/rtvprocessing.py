@@ -313,5 +313,6 @@ async def get_hist_data(files, lat, lon, request):
     if "index" in dataframe:
         dataframe = dataframe.drop(columns=["index"])
 
-    # reorder index labels to expected order
-    return dataframe.reorder_levels(["time", "lat", "lon", "index"])
+    # Reordering index levels does not reorder rows. Downloaded files can arrive
+    # in any order, so sort by time before serializing the response.
+    return dataframe.reorder_levels(["time", "lat", "lon", "index"]).sort_index()

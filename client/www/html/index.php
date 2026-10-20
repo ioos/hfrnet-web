@@ -59,6 +59,7 @@ if ($subdirectory === false || $subdirectory === '') {
           <li><a target="_blank" href="https://dods.ndbc.noaa.gov/thredds/catalog/hfradar.html" class="dropdown-item">Data Access via NDBC THREDDS Server</a></li>
           <li><a target="_blank" href="https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:IOOS-HFRadarRadial" class="dropdown-item">NCEI Radial Archive</a></li>
           <li><a target="_blank" href="https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:IOOS-HFRadarRTVector" class="dropdown-item">NCEI RTV (Total) Archive</a></li>
+          <li><a target="_blank" rel="noopener" href="https://ioos-hfradar.axds.co/" class="dropdown-item">HFR Range Series Archive</a></li>
           <li><a target="_blank" href="https://hfradar.ioos.us/radials-erddap/erddap/index.html" class="dropdown-item">IOOS Radial & Waves ERDDAP Server</a></li>
         </ul>
       </li>
@@ -75,7 +76,7 @@ if ($subdirectory === false || $subdirectory === '') {
       <li class="nav-item dropdown">
         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Documents</a>
         <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-          <li><a class="dropdown-item" target="_blank" href="documents/HFRNet_RTV-NetCDF.pdf"> HFRNet RTV NetCDF Description</a></li>
+          <li><a class="dropdown-item" target="_blank" href="documents/HFRNet_RTV-NetCDF-2026.pdf"> HFRNet RTV NetCDF Description</a></li>
           <li><a class="dropdown-item" target="_blank" href="documents/HFRNet_QC-RTVproc.pdf">HFRNet RTV QC</a></li>
           <li><a class="dropdown-item" target="_blank" href="documents/HFRNet_RTVgrids_20060127.pdf"> HFRNet RTV Grid Development</a></li>
           <li><a class="dropdown-item" target="_blank" href="documents/HFRNet_Radial_NetCDF.pdf"> HFRNet Radial NetCDF Description</a></li>
@@ -84,7 +85,7 @@ if ($subdirectory === false || $subdirectory === '') {
           <li><a class="dropdown-item" target="_blank" href="documents/principles.pdf"> Principles of Operation</a></li>
           <li><a class="dropdown-item" target="_blank" href="documents/specifications.pdf"> Radiated Signal Specifications</a></li>
           <li><a class="dropdown-item" target="_blank" href="documents/radFileFormats_20050408.pdf"> CODAR File Formats</a></li>
-          <li><a class="dropdown-item" target="_blank" href="documents/GNOME_data_formats.pdf"> GNOME Data Formats</a></li>
+          <li><a class="dropdown-item" target="_blank" href="https://gnome.orr.noaa.gov/doc/pygnome/file_formats/index.html"> GNOME Data Formats</a></li>
           <li><a class="dropdown-item" target="_blank" href="documents/HFRNet_WERA_LonLatUV_RDL.pdf"> WERA File Formats</a></li>
         </ul>
       </li>
