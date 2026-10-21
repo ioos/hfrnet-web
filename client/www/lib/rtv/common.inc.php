@@ -29,7 +29,7 @@ if( !isset($_SERVER["SCRIPT_FILENAME"]) ) {
 
 if( !defined("PHP_EOL" ) ) { 
   // For backwards compatability
-  define("PHP_EOL","\n",true);
+  define("PHP_EOL","\n");
 }
 
 
@@ -75,10 +75,10 @@ function enotice($msg) {
 function notice($msg,$isError=false) {
   if( $isError ) {
     error_log(
-      sprintf("%s - %s",gmstrftime("%Y-%m-%d %H:%M:%S"),rtrim($msg))
+      sprintf("%s - %s",gmdate("Y-m-d H:i:s"),rtrim($msg))
     );
   } else {
-    printf("%s - %s%s",gmstrftime("%Y-%m-%d %H:%M:%S"),rtrim($msg),PHP_EOL);
+    printf("%s - %s%s",gmdate("Y-m-d H:i:s"),rtrim($msg),PHP_EOL);
  }
  return true;
 } // END: function notice($msg,$isError=false)

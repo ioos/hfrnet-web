@@ -17,14 +17,14 @@
   /**#@+*/
   if(!defined("EARTH_RADIUS")) { 
     // Avg great-circle radius (km), wikipedia
-    define("EARTH_RADIUS"   , 6372.795, true);
+    define("EARTH_RADIUS"   , 6372.795);
 
-    define("EARTH_RADIUS_KILOMETERS", EARTH_RADIUS             , true);
-    define("EARTH_RADIUS_MILES"     , EARTH_RADIUS*0.621371192 , true);
-    define("EARTH_RADIUS_KNOTS"     , EARTH_RADIUS*0.539956803 , true);
-    define("EARTH_RADIUS_METERS"    , EARTH_RADIUS*1000        , true);
-    define("EARTH_RADIUS_YARDS"     , EARTH_RADIUS*1093.6133   , true);
-    define("EARTH_RADIUS_FEET"      , EARTH_RADIUS*3280.8399   , true);
+    define("EARTH_RADIUS_KILOMETERS", EARTH_RADIUS             );
+    define("EARTH_RADIUS_MILES"     , EARTH_RADIUS*0.621371192 );
+    define("EARTH_RADIUS_KNOTS"     , EARTH_RADIUS*0.539956803 );
+    define("EARTH_RADIUS_METERS"    , EARTH_RADIUS*1000        );
+    define("EARTH_RADIUS_YARDS"     , EARTH_RADIUS*1093.6133   );
+    define("EARTH_RADIUS_FEET"      , EARTH_RADIUS*3280.8399   );
   }
   /**#@-*/
 

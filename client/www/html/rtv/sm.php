@@ -93,13 +93,13 @@ function  cacheEmit() {
   $mtime = filemtime($cpath);
   header("Content-Type: text/javascript charset=utf-8");
   $fname = basename($cpath);
-  header("Content-Disposition: inline; filename=${fname}");
+  header("Content-Disposition: inline; filename={$fname}");
   $altloc = substr($cpath,strlen('/var/www/html'));
-  header("Content-Location: ${altloc}");
+  header("Content-Location: {$altloc}");
   $lastmod = date("r",$mtime);
-  header("Last-Modified: ${lastmod}");
+  header("Last-Modified: {$lastmod}");
   $expires = date("r",$mtime+600);
-  header("Expires: ${expires}");
+  header("Expires: {$expires}");
 
   header("Content-Type: text/javascript");
   if( isset($_REQUEST["callback"]) ) {

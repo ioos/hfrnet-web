@@ -19,12 +19,12 @@
   */
  
 // Global configuration settings.
-define("LIB_DIR","/var/www/lib",true);
+define("LIB_DIR","/var/www/lib");
 $config = parse_ini_file(LIB_DIR.'/rtv/rtv.ini',true);
 require_once(LIB_DIR.'/rtv/lu.inc.php');
 
 
-function nearestNeighbor($lat=null,$lon=null,$ts=null,$res="6km",$pfx) { 
+function nearestNeighbor($lat=null,$lon=null,$ts=null,$res="6km",$pfx=null) { 
   global $config;
   if( !is_numeric($lat) ) { 
     echo("// bad param: lat");

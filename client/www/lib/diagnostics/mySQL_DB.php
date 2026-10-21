@@ -93,8 +93,10 @@ class mySQL_DB extends mysqli{
       return null;
     }
     else {
-      if( !$stmt = $this->prepare($query) )
+      if( !$stmt = $this->prepare($query) ) {
         trigger_error("Unable to prepare statement: {$query}: " . $this->error);
+        return false;
+      }
       array_shift($args); // remove $query from args
       $a = array();
       foreach( $args as $k=>&$v)

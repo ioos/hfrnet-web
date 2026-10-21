@@ -72,7 +72,7 @@ function getRelFilePath($reg,$pfx,$res,$ts) {
     return sprintf(
        "%s/long_term_averages/%s/rtv%s_%s_%s_uwls_%s.asc",
        $reg,gmdate("Y/m",$ts),$pfx,
-       strtolower($reg),$res,gmstrftime("%Y%m",$ts) 
+       strtolower($reg),$res,gmdate("Ym",$ts) 
     );
   }
   if( $pfx=="-annualAvg" ){
@@ -81,14 +81,14 @@ function getRelFilePath($reg,$pfx,$res,$ts) {
     return sprintf(
        "%s/long_term_averages/%s/rtv%s_%s_%s_uwls_%s.asc",
        $reg,gmdate("Y",$ts),$pfx,
-       strtolower($reg),$res,gmstrftime("%Y",$ts) 
+       strtolower($reg),$res,gmdate("Y",$ts) 
     );
   }
   // Create a file path
   return sprintf(
      "%s/%s/ascii/rtv%s_%s_%s_uwls_%s.asc",
      $reg,gmdate("Y_m",$ts),$pfx,
-     strtolower($reg),$res,gmstrftime("%Y_%m_%d_%H00",$ts) 
+     strtolower($reg),$res,gmdate("Y_m_d_H",$ts)."00" 
   );
 } // END: function getRelFilePath($reg,$pfx_txt,$res_txt,$ts)
 
@@ -101,7 +101,7 @@ function getRelNCFilePath($reg,$pfx,$res,$ts) {
   return sprintf(
      "%s/%s/NetCDF/%s_hfr_%s_%s_rtv_uwls_SIO.nc",
      $reg, gmdate("Y_m",$ts),
-     gmstrftime("%Y%m%d%H00", $ts), strtolower($reg), $res
+     gmdate("YmdH", $ts)."00", strtolower($reg), $res
   );
 } // END: function getRelFilePath($reg,$pfx_txt,$res_txt,$ts)
 

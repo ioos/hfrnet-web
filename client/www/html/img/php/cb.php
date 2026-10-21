@@ -111,8 +111,8 @@ function initParams() {
 
 
 function getFontFile($family) { 
-  if( file_exists(FONTS_DIR."/${family}.ttf") ) { 
-    return FONTS_DIR."/${family}.ttf";
+  if( file_exists(FONTS_DIR."/{$family}.ttf") ) { 
+    return FONTS_DIR."/{$family}.ttf";
   }
   return FONTS_DIR."/Arial.ttf";
 } // END: function getFontFile($family)

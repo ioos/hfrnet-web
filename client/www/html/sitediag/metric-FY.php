@@ -75,13 +75,17 @@ $self=$_SERVER['PHP_SELF'];
 # DO regions, regional associations
 
 # coasts vs regionalAssociation
+$regions = array();
+$alias = array();
 if (! isset($_GET['type']) || $_GET['type']=='ra' ) {  
   $sql="SELECT DISTINCT ra FROM regionalAssociations";
   $type='ra';
   $rows=$db->selectQuery($sql);
-  foreach ($rows as $row){
-   $regions[]=$row[$type];
-   $alias[]=$row[$type];
+  if (is_array($rows)) {
+    foreach ($rows as $row){
+     $regions[]=$row[$type];
+     $alias[]=$row[$type];
+    }
   }
 }
 elseif ($_GET['type']=='coasts'){
@@ -110,9 +114,12 @@ elseif ($_GET['type']=='coasts'){
 # select year
 $sql="SELECT DISTINCT YEAR(date) FROM metricUptime";
 $sql="select case when month(date)>=10 then year(date)+1  else year(date) end as fy From metricUptime group by fy";
+$years = array();
 $rows=$db->selectQuery($sql);
-foreach ($rows as $row){
-  $years[]=$row['fy'];
+if (is_array($rows)) {
+  foreach ($rows as $row){
+    $years[]=$row['fy'];
+  }
 }
 arsort($years);
 print "Pick a year: ";
@@ -223,11 +230,15 @@ for ($i=0;$i<count($regions);$i++){
   }
 }
 
-$allQ1=sprintf("%01d%%",$q1sum/$num);
-$allQ2=sprintf("%01d%%",$q2sum/$num);
-$allQ3=sprintf("%01d%%",$q3sum/$num);
-$allQ4=sprintf("%01d%%",$q4sum/$num);
-$allperc=sprintf("%01d%%",$allsum/$num);
+if ($num > 0) {
+  $allQ1=sprintf("%01d%%",$q1sum/$num);
+  $allQ2=sprintf("%01d%%",$q2sum/$num);
+  $allQ3=sprintf("%01d%%",$q3sum/$num);
+  $allQ4=sprintf("%01d%%",$q4sum/$num);
+  $allperc=sprintf("%01d%%",$allsum/$num);
+} else {
+  $allQ1 = $allQ2 = $allQ3 = $allQ4 = $allperc = "0%";
+}
 
 print
 "</tbody><tfoot><tr><th>All</th><th>$allQ1</th><th>$allQ2</th><th>$allQ3</th><th>$allQ4</th><th>$allperc</th></tr></tfoot>
@@ -297,7 +308,7 @@ $sql="SELECT DISTINCT date from metricUptime WHERE DATE(date) BETWEEN DATE( CONC
 , '-10-01' )) AND DATE( CONCAT( $year, '-09-30' )) ORDER BY date";
 $rows=$db->selectQuery($sql);
 foreach ($rows as $row){
-   $date=strftime('%Y-%m',strtotime($row['date']));
+   $date=date('Y-m',strtotime($row['date']));
    $times[]=$row['date'];
    $html.= "<th class=\"sorttable_numeric\">$date</th>";
 }

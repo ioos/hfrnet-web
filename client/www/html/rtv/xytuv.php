@@ -4,7 +4,7 @@
  */
 
 ini_set("memory_limit","1024M");
-define("DATA_DIR","/exports/hfradar/hfrnet/hfrtv",true);
+define("DATA_DIR","/exports/hfradar/hfrnet/hfrtv");
 
 function listRegions() {
   return array('AKNS','GAK','PRVI','USEGC','USHI','USWC');

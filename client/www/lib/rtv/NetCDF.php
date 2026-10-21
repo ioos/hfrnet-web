@@ -38,34 +38,34 @@
 /**#@+
  * Enum data types.
  */
-define("NC_BYTE",   1, true); //!< data is array of 8 bit signed integer
-define("NC_CHAR",   2, true); //!< data is array of characters, i.e., text
-define("NC_SHORT",  3, true); //!< data is array of 16 bit signed integer
-define("NC_INT",    4, true); //!< data is array of 32 bit signed integer
-define("NC_FLOAT",  5, true); //!< data is array of IEEE single precision float
-define("NC_DOUBLE", 6, true); //!< data is array of IEEE double precision float
+define("NC_BYTE",   1); //!< data is array of 8 bit signed integer
+define("NC_CHAR",   2); //!< data is array of characters, i.e., text
+define("NC_SHORT",  3); //!< data is array of 16 bit signed integer
+define("NC_INT",    4); //!< data is array of 32 bit signed integer
+define("NC_FLOAT",  5); //!< data is array of IEEE single precision float
+define("NC_DOUBLE", 6); //!< data is array of IEEE double precision float
 /**#@-*/
 
 
 /**#@+
  * NetCDF flags.
  */
-define("NC_DIMENSION", 10, true); //!< Flag indicating bytes are a dimension
-define("NC_VARIABLE",  11, true); //!< Flag indicating bytes are a variable
-define("NC_ATTRIBUTE", 12, true); //!< Flag indicating bytes are an attribute
+define("NC_DIMENSION", 10); //!< Flag indicating bytes are a dimension
+define("NC_VARIABLE",  11); //!< Flag indicating bytes are a variable
+define("NC_ATTRIBUTE", 12); //!< Flag indicating bytes are an attribute
 /**#@-*/
 
 
 /**#@+
  * Default fill values.
  */
-define("FILL_CHAR",   0x00, true);
-define("FILL_BYTE",   0x81, true);
-define("FILL_SHORT",  0x8001, true);
-define("FILL_INT",    0x80000001, true);
-define("FILL_FLOAT",  0x7cf00000, true);
-define("FILL_DOUBLE", -9999.99, true);
-// define("FILL_DOUBLE", 0x479e00000000, true);
+define("FILL_CHAR",   0x00);
+define("FILL_BYTE",   0x81);
+define("FILL_SHORT",  0x8001);
+define("FILL_INT",    0x80000001);
+define("FILL_FLOAT",  0x7cf00000);
+define("FILL_DOUBLE", -9999.99);
+// define("FILL_DOUBLE", 0x479e00000000);
 /**#@-*/
 
 

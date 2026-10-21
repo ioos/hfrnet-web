@@ -33,8 +33,8 @@
   *  3.2.0 - 2020-06-24 - Changed mysql to mysqli
   */
 
-define( "DB_USE_MULTI_CONNECT" , true , true );
-define( "DB_DEFAULT_PORT"      , 3306 , true );
+define( "DB_USE_MULTI_CONNECT" , true );
+define( "DB_DEFAULT_PORT"      , 3306 );
 
 /**
  * Database abstraction and utility class.
