@@ -17,7 +17,7 @@ RUN npm run minify
 
 
 # Runtime stage with PHP/Apache
-FROM php:7.4-apache
+FROM php:8.4-apache-trixie
 
 ARG GOOGLE_MAPS_API_KEY=XXX
 ENV GOOGLE_MAPS_API_KEY=$GOOGLE_MAPS_API_KEY
@@ -28,23 +28,21 @@ ENV API_URL=$API_URL
 ARG SUBDIRECTORY=XXX
 ENV SUBDIRECTORY=$SUBDIRECTORY
 
-# Bullseye LTS ended 2026-08-31. deb.debian.org still publishes the
-# bullseye-security index, but the .deb files now live on the archive.
-RUN printf 'Acquire::Check-Valid-Until "false";\n' > /etc/apt/apt.conf.d/99no-check-valid-until \
- && sed -i \
-      -e 's|http://deb.debian.org/debian-security|http://archive.debian.org/debian-security|g' \
-      -e 's|http://security.debian.org/debian-security|http://archive.debian.org/debian-security|g' \
-      /etc/apt/sources.list \
- && apt-get update && \
+# Install system dependencies and PHP extensions
+RUN apt-get update && \
     apt-get install -y \
         libpng-dev \
         libjpeg-dev \
-        libfreetype6-dev \
+        libfreetype-dev \
         zlib1g-dev && \
     docker-php-ext-configure gd --with-jpeg --with-freetype && \
     docker-php-ext-install -j"$(nproc)" gd mysqli pdo_mysql && \
     docker-php-ext-enable gd mysqli pdo_mysql && \
     rm -rf /var/lib/apt/lists/*
+
+# Hide deprecation notices from responses. The image ships with no php.ini,
+# so PHP 8 would otherwise report E_ALL, including E_DEPRECATED.
+COPY php/zz-hfrnet.ini $PHP_INI_DIR/conf.d/zz-hfrnet.ini
 
 # Set working directory
 WORKDIR /var/www
