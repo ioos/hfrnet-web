@@ -578,6 +578,147 @@ class HFRNetwork {
   }
 
   /*
+   * S3 object path for a radialfiles row.
+   * Ingest stores the full key in dfile (/radials/SITE/YYYY-MM/file.ruv).
+   * Older rows may store only the basename, with the directory in dir.
+   */
+  static function radialObjectPath($row){
+    $dfile = trim((string)(isset($row['dfile']) ? $row['dfile'] : ''));
+    if ($dfile === '') {
+      return '';
+    }
+    if (strpos($dfile, '/') === false) {
+      $dir = rtrim(trim((string)(isset($row['dir']) ? $row['dir'] : '')), '/');
+      if ($dir !== '') {
+        $dfile = $dir . '/' . $dfile;
+      }
+    }
+    return '/' . ltrim($dfile, '/');
+  }
+
+  /*
+   * True when this network and station exist.
+   */
+  function hasStation(){
+    if ($this->site === '' || $this->network === '') {
+      return false;
+    }
+    $rows = $this->db->selectQuery(
+      "SELECT s.site_id
+         FROM site s
+         JOIN network n ON n.network_id = s.network_id
+        WHERE s.sta=? AND n.net=?
+        LIMIT 1",
+      $this->site,
+      $this->network
+    );
+    return is_array($rows) && count($rows) > 0;
+  }
+
+  /*
+   * Latest radial file for the station, from latest_radialfiles.
+   * Patterns m and i are filtered. wera and lera are not an ideal/measured
+   * pair, so every pattern is eligible and the newest row is used.
+   * When several formats share that timestamp, prefer format ruv.
+   * Returns one row (dfile, dir, format, patterntype, time) or null.
+   */
+  function getLatestRadialCoverageFile($pattern){
+    if ($this->site === '' || $this->network === '') {
+      return null;
+    }
+    $pattern = strtolower((string)$pattern);
+    $broad = ($pattern === 'wera' || $pattern === 'lera');
+    if (!$broad && $pattern !== 'm' && $pattern !== 'i') {
+      return null;
+    }
+
+    $query = "SELECT rf.dfile, rf.dir, rf.format, rf.patterntype, rf.time
+                FROM latest_radialfiles lrf
+                JOIN radialfiles rf
+                  ON rf.site_id = lrf.site_id
+                 AND rf.network_id = lrf.network_id
+                 AND rf.time = lrf.time
+                 AND rf.patterntype = lrf.patterntype
+                JOIN site s
+                  ON s.site_id = lrf.site_id AND s.network_id = lrf.network_id
+                JOIN network n
+                  ON n.network_id = lrf.network_id
+               WHERE s.sta=? AND n.net=?";
+    if (!$broad) {
+      $query .= " AND rf.patterntype=?";
+    }
+    $query .= " ORDER BY lrf.time DESC, FIELD(rf.format, 'ruv') DESC, rf.mtime DESC LIMIT 1";
+
+    if ($broad) {
+      $rows = $this->db->selectQuery($query, $this->site, $this->network);
+    } else {
+      $rows = $this->db->selectQuery($query, $this->site, $this->network, $pattern);
+    }
+    if (!is_array($rows) || count($rows) === 0) {
+      return null;
+    }
+    return $rows[0];
+  }
+
+  /*
+   * Radial files whose observation hour overlaps [startTime, endTime].
+   * A file at `time` is included when time <= endTime and time > startTime - 3599,
+   * matching the previous filename-hour filter (file hour ends at time + 3599).
+   * One row per time and pattern; format ruv wins when several formats share a timestamp.
+   */
+  function getRadialCoverageFiles($pattern){
+    if ($this->site === '' || $this->network === '') {
+      return array();
+    }
+    $pattern = strtolower((string)$pattern);
+    $broad = ($pattern === 'wera' || $pattern === 'lera');
+    if (!$broad && $pattern !== 'm' && $pattern !== 'i') {
+      return array();
+    }
+
+    $end = (int)$this->endTime;
+    $start = (int)$this->startTime;
+    $query = "SELECT rf.dfile, rf.dir, rf.format, rf.patterntype, rf.time
+                FROM radialfiles rf
+                JOIN site s
+                  ON s.site_id = rf.site_id AND s.network_id = rf.network_id
+                JOIN network n
+                  ON n.network_id = rf.network_id
+               WHERE s.sta=? AND n.net=?";
+    if (!$broad) {
+      $query .= " AND rf.patterntype=?";
+    }
+    $query .= " AND rf.time<=? AND rf.time>?
+                ORDER BY rf.time ASC, FIELD(rf.format, 'ruv') DESC, rf.mtime DESC";
+
+    $overlapStart = $start - 3599;
+    if ($broad) {
+      $rows = $this->db->selectQuery($query, $this->site, $this->network, $end, $overlapStart);
+    } else {
+      $rows = $this->db->selectQuery($query, $this->site, $this->network, $pattern, $end, $overlapStart);
+    }
+    return $this->preferOneRadialFilePerTime($rows);
+  }
+
+  /*
+   * Keep the first row for each observation time and pattern.
+   * Callers order format ruv ahead of other formats.
+   */
+  private function preferOneRadialFilePerTime($rows){
+    if (!is_array($rows)) {
+      return array();
+    }
+    $kept = array();
+    foreach ($rows as $row) {
+      $key = sprintf('%.0f|%s', (float)$row['time'], $row['patterntype']);
+      if (!isset($kept[$key])) {
+        $kept[$key] = $row;
+      }
+    }
+    return array_values($kept);
+  }
+
+  /*
    * Get the last data for a network or site
    * Must select either network or station.  Otherwise it'll take forever to return everything
    */
@@ -1018,6 +1159,3 @@ GROUP BY date order by date";
     return $rows;
   }
 }
-?>
-
- 
