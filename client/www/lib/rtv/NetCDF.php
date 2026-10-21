@@ -93,13 +93,13 @@ class NetCDF {
    * @param string $fpath A path to a NetCDF file existing on disk.
    * @return object
    */
-  function NetCDF($fpath) {
+  function __construct($fpath) {
     if( !$this->open($fpath) ) { 
       return false;
     }
     register_shutdown_function(array($this,'__shutdown__'));
     return $this;
-  } // END: function NetCDF($fpath)
+  } // END: function __construct($fpath)
 
 
 
@@ -1058,12 +1058,12 @@ class NetCDF {
         // byte-swap big-endian => little-endian
         // Note: if you're on a big-endian machine, you'll need to remove this.
         // TODO: Fix so we don't have to worry.
-        $ch = $bytes{0};
-        $bytes{0} = $bytes{3};
-        $bytes{3} = $ch;
-        $ch = $bytes{1};
-        $bytes{1} = $bytes{2};
-        $bytes{2} = $ch;
+        $ch = $bytes[0];
+        $bytes[0] = $bytes[3];
+        $bytes[3] = $ch;
+        $ch = $bytes[1];
+        $bytes[1] = $bytes[2];
+        $bytes[2] = $ch;
         $up = unpack("f",$bytes);
         return $up[1];
       case NC_DOUBLE:
@@ -1071,18 +1071,18 @@ class NetCDF {
         // byte-swap big-endian => little-endian
         // Note: if you're on a big-endian machine, you'll need to remove this.
         // TODO: Fix so we don't have to worry.
-        $ch = $bytes{0};
-        $bytes{0} = $bytes{7};
-        $bytes{7} = $ch;
-        $ch = $bytes{1};
-        $bytes{1} = $bytes{6};
-        $bytes{6} = $ch;
-        $ch = $bytes{2};
-        $bytes{2} = $bytes{5};
-        $bytes{5} = $ch;
-        $ch = $bytes{3};
-        $bytes{3} = $bytes{4};
-        $bytes{4} = $ch;
+        $ch = $bytes[0];
+        $bytes[0] = $bytes[7];
+        $bytes[7] = $ch;
+        $ch = $bytes[1];
+        $bytes[1] = $bytes[6];
+        $bytes[6] = $ch;
+        $ch = $bytes[2];
+        $bytes[2] = $bytes[5];
+        $bytes[5] = $ch;
+        $ch = $bytes[3];
+        $bytes[3] = $bytes[4];
+        $bytes[4] = $ch;
         $up = unpack("d",$bytes);
         return $up[1];
     }

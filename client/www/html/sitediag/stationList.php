@@ -89,17 +89,17 @@ foreach( $rows as $row ){
 # current west coast stations
 foreach( $west_sites as $row ){
   $sites=array();
-  $sites['sta']=$row{'sta'};
-  $sites['staname']=$row{'staname'};
-  $sites['net']=$row{'net'};
-  $sites['lat']=$row{'lat'};
-  $sites['lon']=$row{'lon'};
-  $sites['lasttime']=gmdate('Y-m-d',$row{'lasttime'});
-  $sites['time']=gmdate('Y-m-d',$row{'time'});
-  $sites['cfreq']=sprintf('%2.5f',$row{'cfreq'});
-  $sites['manu']=$row{'manufacturer'};
-  $sites['bwidth']=$row{'xmit_bandwidth'};
-  $sites['sweep']=$row{'xmit_sweep_rate'};
+  $sites['sta']=$row['sta'];
+  $sites['staname']=$row['staname'];
+  $sites['net']=$row['net'];
+  $sites['lat']=$row['lat'];
+  $sites['lon']=$row['lon'];
+  $sites['lasttime']=gmdate('Y-m-d',$row['lasttime']);
+  $sites['time']=gmdate('Y-m-d',$row['time']);
+  $sites['cfreq']=sprintf('%2.5f',$row['cfreq']);
+  $sites['manu']=$row['manufacturer'];
+  $sites['bwidth']=$row['xmit_bandwidth'];
+  $sites['sweep']=$row['xmit_sweep_rate'];
   $site[]=$sites;
 }
 asort($site);
@@ -127,17 +127,17 @@ $site=array();
 # current east coast stations
 foreach( $east_sites as $row ){
   $sites=array();
-  $sites['sta']=$row{'sta'};
-  $sites['staname']=$row{'staname'};
-  $sites['net']=$row{'net'};
-  $sites['lat']=$row{'lat'};
-  $sites['lon']=$row{'lon'};
-  $sites['lasttime']=gmdate('Y-m-d',$row{'lasttime'});
-  $sites['time']=gmdate('Y-m-d',$row{'time'});
-  $sites['cfreq']=sprintf('%2.5f',$row{'cfreq'});
-  $sites['manu']=$row{'manufacturer'};
-  $sites['bwidth']=$row{'xmit_bandwidth'};
-  $sites['sweep']=$row{'xmit_sweep_rate'};
+  $sites['sta']=$row['sta'];
+  $sites['staname']=$row['staname'];
+  $sites['net']=$row['net'];
+  $sites['lat']=$row['lat'];
+  $sites['lon']=$row['lon'];
+  $sites['lasttime']=gmdate('Y-m-d',$row['lasttime']);
+  $sites['time']=gmdate('Y-m-d',$row['time']);
+  $sites['cfreq']=sprintf('%2.5f',$row['cfreq']);
+  $sites['manu']=$row['manufacturer'];
+  $sites['bwidth']=$row['xmit_bandwidth'];
+  $sites['sweep']=$row['xmit_sweep_rate'];
   $site[]=$sites;
 }
 asort($site);
@@ -161,17 +161,17 @@ $site=array();
 # current alaska stations
 foreach( $alaska_sites as $row ){
   $sites=array();
-  $sites['sta']=$row{'sta'};
-  $sites['staname']=$row{'staname'};
-  $sites['net']=$row{'net'};
-  $sites['lat']=$row{'lat'};
-  $sites['lon']=$row{'lon'};
-  $sites['lasttime']=gmdate('Y-m-d',$row{'lasttime'});
-  $sites['time']=gmdate('Y-m-d',$row{'time'});
-  $sites['cfreq']=sprintf('%2.5f',$row{'cfreq'});
-  $sites['manu']=$row{'manufacturer'};
-  $sites['bwidth']=$row{'xmit_bandwidth'};
-  $sites['sweep']=$row{'xmit_sweep_rate'};
+  $sites['sta']=$row['sta'];
+  $sites['staname']=$row['staname'];
+  $sites['net']=$row['net'];
+  $sites['lat']=$row['lat'];
+  $sites['lon']=$row['lon'];
+  $sites['lasttime']=gmdate('Y-m-d',$row['lasttime']);
+  $sites['time']=gmdate('Y-m-d',$row['time']);
+  $sites['cfreq']=sprintf('%2.5f',$row['cfreq']);
+  $sites['manu']=$row['manufacturer'];
+  $sites['bwidth']=$row['xmit_bandwidth'];
+  $sites['sweep']=$row['xmit_sweep_rate'];
   $site[]=$sites;
 }
 asort($site);
@@ -195,17 +195,17 @@ $site=array();
 # current hawaii stations
 foreach( $hawaii_sites as $row ){
   $sites=array();
-  $sites['sta']=$row{'sta'};
-  $sites['staname']=$row{'staname'};
-  $sites['net']=$row{'net'};
-  $sites['lat']=$row{'lat'};
-  $sites['lon']=$row{'lon'};
-  $sites['lasttime']=gmdate('Y-m-d',$row{'lasttime'});
-  $sites['time']=gmdate('Y-m-d',$row{'time'});
-  $sites['cfreq']=sprintf('%2.5f',$row{'cfreq'});
-  $sites['manu']=$row{'manufacturer'};
-  $sites['bwidth']=$row{'xmit_bandwidth'};
-  $sites['sweep']=$row{'xmit_sweep_rate'};
+  $sites['sta']=$row['sta'];
+  $sites['staname']=$row['staname'];
+  $sites['net']=$row['net'];
+  $sites['lat']=$row['lat'];
+  $sites['lon']=$row['lon'];
+  $sites['lasttime']=gmdate('Y-m-d',$row['lasttime']);
+  $sites['time']=gmdate('Y-m-d',$row['time']);
+  $sites['cfreq']=sprintf('%2.5f',$row['cfreq']);
+  $sites['manu']=$row['manufacturer'];
+  $sites['bwidth']=$row['xmit_bandwidth'];
+  $sites['sweep']=$row['xmit_sweep_rate'];
   $site[]=$sites;
 }
 asort($site);

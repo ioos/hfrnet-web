@@ -284,7 +284,7 @@ if (!is_array($rows)) {
 }
 
 foreach ($rows as $row){
-   $sites[]=array('site'=>$row{'site'},'affiliation'=>$row{'affiliation'});
+   $sites[]=array('site'=>$row['site'],'affiliation'=>$row['affiliation']);
 }
 
 if (count($sites)==0){
@@ -318,13 +318,13 @@ $allTotalPoss[3] = 0;
 $allTotalPoss[4] = 0;
 
 foreach ($sites as $site){
-  $sql="SELECT lat,lon,freq FROM metricUptime WHERE site='".$site{'site'}."' AND affiliation='".$site{'affiliation'}. "' and DATE(date) BETWEEN DATE( CONCAT( -1+$year, '-10-01' )) AND DATE( CONCAT( $year, '-09-30' )) LIMIT 0,1";
+  $sql="SELECT lat,lon,freq FROM metricUptime WHERE site='".$site['site']."' AND affiliation='".$site['affiliation']. "' and DATE(date) BETWEEN DATE( CONCAT( -1+$year, '-10-01' )) AND DATE( CONCAT( $year, '-09-30' )) LIMIT 0,1";
   $row=$db->selectQuery($sql);
-  $lon=$row{'lon'};
-  $lat=$row{'lat'};
-  $freq=$row{'freq'};
+  $lon=$row['lon'];
+  $lat=$row['lat'];
+  $freq=$row['freq'];
 #find out if there are more than one beam pattern
-  $sql="SELECT DISTINCT type FROM metricUptime where site='".$site{'site'}."' AND affiliation='".$site{'affiliation'}. "' and DATE(date) BETWEEN DATE( CONCAT( -1+$year, '-10-01' )) AND DATE( CONCAT( $year, '-09-30' ))";
+  $sql="SELECT DISTINCT type FROM metricUptime where site='".$site['site']."' AND affiliation='".$site['affiliation']. "' and DATE(date) BETWEEN DATE( CONCAT( -1+$year, '-10-01' )) AND DATE( CONCAT( $year, '-09-30' ))";
   $rows=$db->selectQuery($sql);
   $types=array();
   $numPatt=0;
@@ -332,9 +332,9 @@ foreach ($sites as $site){
      $ii=$ii+1;
      $imod=$ii%2;
      if ($imod==0){
-       $html.= "<tr class=\"odd\"><td class=\"site\">".$site{'site'}." <br>". $row['type']."</td><td>".$site{'affiliation'}."</td><td>$lat</td><td>$lon</td><td>$freq</td>";
+       $html.= "<tr class=\"odd\"><td class=\"site\">".$site['site']." <br>". $row['type']."</td><td>".$site['affiliation']."</td><td>$lat</td><td>$lon</td><td>$freq</td>";
      } else {
-       $html.= "<tr class=\"even\"><td class=\"site\">".$site{'site'}." <br>". $row['type']."</td><td>".$site{'affiliation'}."</td><td>$lat</td><td>$lon</td><td>$freq</td>";
+       $html.= "<tr class=\"even\"><td class=\"site\">".$site['site']." <br>". $row['type']."</td><td>".$site['affiliation']."</td><td>$lat</td><td>$lon</td><td>$freq</td>";
      }
      $totFiles[$numPatt]=array();
      $totFiles[$numPatt][0] = 0;
@@ -353,7 +353,7 @@ foreach ($sites as $site){
      $theoObs=0;
      foreach ($times as $time){
 # loop through month by month and count the number of good files
-        $sql="SELECT date,numObs,theoObs FROM metricUptime WHERE site='".$site{'site'}."' AND affiliation='".$site{'affiliation'}. "' and YEAR(date)=YEAR('$time') AND MONTH(date)=MONTH('$time') AND type='".$row['type']."'";
+        $sql="SELECT date,numObs,theoObs FROM metricUptime WHERE site='".$site['site']."' AND affiliation='".$site['affiliation']. "' and YEAR(date)=YEAR('$time') AND MONTH(date)=MONTH('$time') AND type='".$row['type']."'";
         $mm=intval(substr($time,5,2));
         $yy=intval(substr($time,0,4));
         $rrow=$db->selectQuery($sql);
@@ -365,31 +365,31 @@ foreach ($sites as $site){
         if ($rrow[0]['date']){
 # There is data available for this month
           if ($filesperday==0){
-            $filesperday=$rrow[0]{'theoObs'}/date('t', mktime(0, 0, 0, $mm, 1, $year));
+            $filesperday=$rrow[0]['theoObs']/date('t', mktime(0, 0, 0, $mm, 1, $year));
           } else {
-            $filesperday=min($filesperday,$rrow[0]{'theoObs'}/$daysinmonth);
+            $filesperday=min($filesperday,$rrow[0]['theoObs']/$daysinmonth);
           }
           $theoObs=$filesperday*$daysinmonth;
-          $perc=sprintf("%01.2f",$rrow[0]{'numObs'}/$theoObs*100);
+          $perc=sprintf("%01.2f",$rrow[0]['numObs']/$theoObs*100);
           $fperc=ceil($perc/10)*10;
           $fcolor='color'.$fperc;
           if ($mm>=10){
-             $totFiles[$numPatt][1]=$totFiles[$numPatt][1]+$rrow[0]{'numObs'};
+             $totFiles[$numPatt][1]=$totFiles[$numPatt][1]+$rrow[0]['numObs'];
              $totPoss[$numPatt][1]=$totPoss[$numPatt][1]+$theoObs;
           } elseif ($mm<=3){
-             $totFiles[$numPatt][2]=$totFiles[$numPatt][2]+$rrow[0]{'numObs'};
+             $totFiles[$numPatt][2]=$totFiles[$numPatt][2]+$rrow[0]['numObs'];
              $totPoss[$numPatt][2]=$totPoss[$numPatt][2]+$theoObs;
           } elseif ($mm>=4 && $mm<=6){
-             $totFiles[$numPatt][3]=$totFiles[$numPatt][3]+$rrow[0]{'numObs'};
+             $totFiles[$numPatt][3]=$totFiles[$numPatt][3]+$rrow[0]['numObs'];
              $totPoss[$numPatt][3]=$totPoss[$numPatt][3]+$theoObs;
           } elseif ($mm>=7 && $mm<9){
-             $totFiles[$numPatt][4]=$totFiles[$numPatt][4]+$rrow[0]{'numObs'};
+             $totFiles[$numPatt][4]=$totFiles[$numPatt][4]+$rrow[0]['numObs'];
              $totPoss[$numPatt][4]=$totPoss[$numPatt][4]+$theoObs;
           }
-          $totFiles[$numPatt][0]=$totFiles[$numPatt][0]+$rrow[0]{'numObs'};
+          $totFiles[$numPatt][0]=$totFiles[$numPatt][0]+$rrow[0]['numObs'];
           $totPoss[$numPatt][0]=$totPoss[$numPatt][0]+$theoObs;
-          $html.= "<td id=\"$fcolor\" sorttable_customkey=\"$perc\">$perc %<br>".$rrow[0]{'numObs'}." / ".$theoObs."</td>"; 
-        } elseif ($yy==2017 && $mm>=1 && $site{'affiliation'}=="SFSU") {
+          $html.= "<td id=\"$fcolor\" sorttable_customkey=\"$perc\">$perc %<br>".$rrow[0]['numObs']." / ".$theoObs."</td>"; 
+        } elseif ($yy==2017 && $mm>=1 && $site['affiliation']=="SFSU") {
 /* Special condition to handle SFSU to CODAR switchover
 */ 
           $html.= "<td>&nbsp</td>";

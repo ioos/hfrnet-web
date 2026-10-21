@@ -69,7 +69,7 @@ class Db {
    */
   var $m_bAssoc = false;  //!< Fetch arrays associated
 
-  function Db($host='localhost',$port=DB_DEFAULT_PORT,$user=null,$pass=null) { 
+  function __construct($host='localhost',$port=DB_DEFAULT_PORT,$user=null,$pass=null) { 
     $this->set_host($host,$port);
     $this->set_user($user,$pass);
     register_shutdown_function(array($this,'close'));

@@ -53,11 +53,11 @@ class DirectoryListing {
    *  test for which files will be included.
    * @return {object} New DirectoryListing object.
    */
-  function DirectoryListing($dpath=null,$filter=null) { 
+  function __construct($dpath=null,$filter=null) { 
     $this->dpath = (is_null($dpath)) ? getcwd() : $dpath;
     $this->filter = $filter;
     return $this;
-  } // END: constructor DirectoryListing($dpath=null,$filter=null)
+  } // END: constructor __construct($dpath=null,$filter=null)
 
 
   // ----------------------------------------------------------------------//
@@ -266,7 +266,7 @@ class DirectoryListing {
         }
 
         // Only include hidden files if requested.
-        if( !$this->bInclhidden && $fname{0}=='.' ) { 
+        if( !$this->bInclhidden && $fname[0]=='.' ) { 
           continue;
         }
 
