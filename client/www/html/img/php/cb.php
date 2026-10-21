@@ -490,7 +490,7 @@ function generateColorbar(&$params) {
 function main() { 
   $params = initParams();
   $img = generateColorbar($params);
-  if( is_resource($img) ) { 
+  if( $img instanceof GdImage ) { 
     header("Content-Type: image/png");
     imageSaveAlpha($img,true);
     imagePng($img);

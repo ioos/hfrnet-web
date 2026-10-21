@@ -168,6 +168,8 @@ class Db {
 
   function connect() {
     if(!$this->linkID) {
+      // PHP 8.1+ throws on connect/query failure unless this is off.
+      mysqli_report(MYSQLI_REPORT_OFF);
       $this->linkID = mysqli_connect(
         $this->host,
         $this->user,
