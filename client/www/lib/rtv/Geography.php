@@ -20,14 +20,14 @@
 
 
 // Change to the full path if gdaltransform is not in your system path.
-define("GDALTRANSFORM","gdaltransform",true);
+define("GDALTRANSFORM","gdaltransform");
 
 // Change to the full path if gdalwarp is not in your system path.
-define("GDALWARP","gdalwarp",true);
+define("GDALWARP","gdalwarp");
 
 // Maximum number of points to be transformed in batches.
 // echo [point]* | gdaltransform -s_srs <srcproj> -t_srs <dstproj>
-define("TRANSFORM_LIMIT",200,true);
+define("TRANSFORM_LIMIT",200);
 
 
 /**

@@ -216,7 +216,7 @@ function getStationKml($hdr,&$mat) {
         "Station Diagnostics</a></div>",
         $row[$ihdr['sta']], $row[$ihdr['net']],
         $lat, $lon, $latdm, $londm, $row[$ihdr['cfreq']],
-        gmstrftime("%Y-%m-%d %H:%M:%S UTC",floatVal($row[$ihdr['mtime']])),
+        gmdate("Y-m-d H:i:s",floatVal($row[$ihdr['mtime']]))." UTC",
         $age, $row[$ihdr['format']],$stats,
         $row[$ihdr['sta']], $row[$ihdr['net']]
       );
@@ -341,13 +341,13 @@ function  cacheEmit() {
   $mtime = filemtime($cpath);
   header("Content-Type: application/vnd.google-earth.kml+xml; charset=utf-8");
   $fname = basename($cpath);
-  header("Content-Disposition: inline; filename=${fname}");
+  header("Content-Disposition: inline; filename={$fname}");
   $altloc = substr($cpath,strlen('/var/www/html'));
-  header("Content-Location: ${altloc}");
+  header("Content-Location: {$altloc}");
   $lastmod = date("r",$mtime);
-  header("Last-Modified: ${lastmod}");
+  header("Last-Modified: {$lastmod}");
   $expires = date("r",$mtime+600);
-  //header("Expires: ${expires}");
+  //header("Expires: {$expires}");
   header("Expires: 0");
 
   readfile($cpath);

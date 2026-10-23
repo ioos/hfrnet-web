@@ -132,7 +132,7 @@ function main() {
     </ListStyle>
   </Style>
   <Link>
-    <href>http://hfrnet.ucsd.edu/rtv/vectorKml.php?res=${res}&amp;pfx=${pfx}&amp;ts=${ts}&amp;bbox=${bbox}&amp;rng=${rng}&amp;cs=${cs}</href>
+    <href>http://hfrnet.ucsd.edu/rtv/vectorKml.php?res={$res}&amp;pfx={$pfx}&amp;ts={$ts}&amp;bbox={$bbox}&amp;rng={$rng}&amp;cs={$cs}</href>
   </Link>
 </NetworkLink>
   ");

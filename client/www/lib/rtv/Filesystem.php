@@ -34,16 +34,16 @@
 
 
 if( !defined("FILESYSTEM") ) { 
-  DEFINE("FILESYSTEM",true,true);
+  DEFINE("FILESYSTEM",true);
 
-  DEFINE("SORT_ASC" ,   1 , true);
-  DEFINE("SORT_DESC" , -1 , true);
-  DEFINE("SORT_NONE" ,  0 , true);
+  DEFINE("SORT_ASC" ,   1 );
+  DEFINE("SORT_DESC" , -1 );
+  DEFINE("SORT_NONE" ,  0 );
 }
 
 
 if( !defined("DIRECTORY_SEPARATOR") ) { 
-  define("DIRECTORY_SEPARATOR","/",true);
+  define("DIRECTORY_SEPARATOR","/");
 }
 
 
@@ -63,7 +63,7 @@ class Filesystem {
    * Returns the path of the parent directory
    *   to the parameter supplied.
    */
-  function parentDir($dpath) {
+  static function parentDir($dpath) {
     $dpath = str_replace(DIRECTORY_SEPARATOR,'/',$dpath);
     $dpath = rtrim($dpath,'/');
     $pts = explode('/',$dpath);
@@ -76,7 +76,7 @@ class Filesystem {
   /*
    * Tests whether a directory is empty or not.
    */
-  function isEmpty($dpath) {
+  static function isEmpty($dpath) {
     if(!file_exists($dpath) || !is_dir($dpath) || !is_readable($dpath) ) {
       return false;
     }
@@ -105,7 +105,7 @@ class Filesystem {
    * Purpose: Iteratively create the full
    *   directory path specified by dir.
    */
-  function mkdir($dpath,$mode=0755,$prune=0) {
+  static function mkdir($dpath,$mode=0755,$prune=0) {
     // Clean up the string, normalize path separator.
     $dpath = trim($dpath);
     $dpath = str_replace(array("\\","/",DIRECTORY_SEPARATOR),'/',$dpath);
@@ -167,7 +167,7 @@ class Filesystem {
    * Function: rmdir(dpath)
    * Purpose: Recursivly delete directories from base-dir
    */
-  function rmdir($dpath) {
+  static function rmdir($dpath) {
     // Clean up the string, normalize path separator.
     $dpath = trim($dpath);
     $dpath = str_replace(array("\\","/",DIRECTORY_SEPARATOR),'/',$dpath);
@@ -200,7 +200,7 @@ class Filesystem {
   /**
    * Ensure that $dst directory exists, or is capable of existing.
    */
-  function copy($srcpath,$dstpath) {
+  static function copy($srcpath,$dstpath) {
     if( is_dir($srcpath) ) { 
       // Clean up the string, normalize path separator.
       $srcpath = trim($srcpath);
@@ -249,7 +249,7 @@ class Filesystem {
    * @param string $dstpath A file or directory destination.
    * @return bool success or failure.
    */
-  function rename($srcpath,$dstpath) { 
+  static function rename($srcpath,$dstpath) { 
     return (
          Filesystem::copy($srcpath,$dstpath) 
       && Filesystem::unlink($srcpath)
@@ -260,7 +260,7 @@ class Filesystem {
   /**
    * Remove the file or directory from the file system.
    */
-  function unlink($src) { 
+  static function unlink($src) { 
     if( is_file($src) ) { 
       return unlink($src);
     }
@@ -279,7 +279,7 @@ class Filesystem {
    * @param {string} $fpath A file to read from the local file system.
    * @return {mixed} file contents or false if file not found.
    */
-  function file_get_contents($fpath) {
+  static function file_get_contents($fpath) {
     if( !file_exists($fpath) ) { 
       return false;
     }
@@ -297,7 +297,7 @@ class Filesystem {
    * @param {int} $dmode [default=0775], Permissions on the directory.
    * @return {boolean} success or failure.
    */
-  function file_put_contents($fpath,$dat,$mode="wb",$dmode=0775) {
+  static function file_put_contents($fpath,$dat,$mode="wb",$dmode=0775) {
     $fpath = str_replace(array("\\","/"),DIRECTORY_SEPARATOR,$fpath);
 
     if( !Filesystem::mkdir($fpath,$dmode,1) ) {
@@ -330,7 +330,7 @@ class Filesystem {
    * @param {int} $dmode Permissions on rhe directory.
    * @return {boolean} success or failure.
    */
-  function append($fpath,&$dat,$dmode=0775) {
+  static function append($fpath,&$dat,$dmode=0775) {
     return Filesystem::file_put_contents($fpath,$dat,"ab",$dmode);
   } // END: function append($fpath,&$dat)
 
@@ -348,7 +348,7 @@ class Filesystem {
    * @return {array} List of files and directories contained within $dpath,
    *  matching $match.
    */
-  function getDirectoryListing(
+  static function getDirectoryListing(
   $dpath, $fullpath=true, $incldirs=true, $inclfiles=true, $match=null ) {
 
     if( !is_dir($dpath) || !is_readable($dpath) ) {
@@ -384,7 +384,7 @@ class Filesystem {
 
 
 
-  function microtime_float() {
+  static function microtime_float() {
     list($usec, $sec) = explode(" ", microtime());
     return ((float)$usec + (float)$sec);
   }
@@ -397,7 +397,7 @@ class Filesystem {
    * @param {string} $str A portion of text that will be used in a file path.
    * @return {string} A safe for storing & addressing file path part.
    */
-  function getPathSafe($str) { 
+  static function getPathSafe($str) { 
     return preg_replace("/(?:^\.*|[^a-zA-Z0-9\-\.\,_\ \'\&\"])/","",$str);
   } // END: function getPathSafe($str)
 
@@ -409,7 +409,7 @@ class Filesystem {
    * @param {string} $str A file name component, does not have directories.
    * @return {string} A file-name safe string.
    */
-  function getFileSafe($str) { 
+  static function getFileSafe($str) { 
     return preg_replace("/(?:^\.*|[\/\\\r\n\t])/","",$str);
   } // END: function getFileSafe($str)
 

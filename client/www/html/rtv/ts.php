@@ -16,7 +16,7 @@
   * 2.1.3 - 2020-06-25 - Changed getCachePath to use directory cache
   */
 
-define("LIB_DIR","/var/www/lib",true);
+define("LIB_DIR","/var/www/lib");
 define("CONFIG_FILE",LIB_DIR."/diagnostics/hfrnet_db.ini");
 
 require_once(LIB_DIR."/rtv/Db.php");

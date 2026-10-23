@@ -22,6 +22,8 @@
 class mySQL_DB extends mysqli{
 
   public function __construct($server, $user, $pass, $db,$port=3306){
+    // PHP 8.1+ throws on connect failure unless this is off.
+    mysqli_report(MYSQLI_REPORT_OFF);
     parent::__construct($server, $user, $pass, $db,$port);
 
     if( mysqli_connect_error() ){
@@ -91,8 +93,10 @@ class mySQL_DB extends mysqli{
       return null;
     }
     else {
-      if( !$stmt = $this->prepare($query) )
+      if( !$stmt = $this->prepare($query) ) {
         trigger_error("Unable to prepare statement: {$query}: " . $this->error);
+        return false;
+      }
       array_shift($args); // remove $query from args
       $a = array();
       foreach( $args as $k=>&$v)

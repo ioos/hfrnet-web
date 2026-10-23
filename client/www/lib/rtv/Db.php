@@ -33,8 +33,8 @@
   *  3.2.0 - 2020-06-24 - Changed mysql to mysqli
   */
 
-define( "DB_USE_MULTI_CONNECT" , true , true );
-define( "DB_DEFAULT_PORT"      , 3306 , true );
+define( "DB_USE_MULTI_CONNECT" , true );
+define( "DB_DEFAULT_PORT"      , 3306 );
 
 /**
  * Database abstraction and utility class.
@@ -69,7 +69,7 @@ class Db {
    */
   var $m_bAssoc = false;  //!< Fetch arrays associated
 
-  function Db($host='localhost',$port=DB_DEFAULT_PORT,$user=null,$pass=null) { 
+  function __construct($host='localhost',$port=DB_DEFAULT_PORT,$user=null,$pass=null) { 
     $this->set_host($host,$port);
     $this->set_user($user,$pass);
     register_shutdown_function(array($this,'close'));
@@ -168,6 +168,8 @@ class Db {
 
   function connect() {
     if(!$this->linkID) {
+      // PHP 8.1+ throws on connect/query failure unless this is off.
+      mysqli_report(MYSQLI_REPORT_OFF);
       $this->linkID = mysqli_connect(
         $this->host,
         $this->user,

@@ -38,34 +38,34 @@
 /**#@+
  * Enum data types.
  */
-define("NC_BYTE",   1, true); //!< data is array of 8 bit signed integer
-define("NC_CHAR",   2, true); //!< data is array of characters, i.e., text
-define("NC_SHORT",  3, true); //!< data is array of 16 bit signed integer
-define("NC_INT",    4, true); //!< data is array of 32 bit signed integer
-define("NC_FLOAT",  5, true); //!< data is array of IEEE single precision float
-define("NC_DOUBLE", 6, true); //!< data is array of IEEE double precision float
+define("NC_BYTE",   1); //!< data is array of 8 bit signed integer
+define("NC_CHAR",   2); //!< data is array of characters, i.e., text
+define("NC_SHORT",  3); //!< data is array of 16 bit signed integer
+define("NC_INT",    4); //!< data is array of 32 bit signed integer
+define("NC_FLOAT",  5); //!< data is array of IEEE single precision float
+define("NC_DOUBLE", 6); //!< data is array of IEEE double precision float
 /**#@-*/
 
 
 /**#@+
  * NetCDF flags.
  */
-define("NC_DIMENSION", 10, true); //!< Flag indicating bytes are a dimension
-define("NC_VARIABLE",  11, true); //!< Flag indicating bytes are a variable
-define("NC_ATTRIBUTE", 12, true); //!< Flag indicating bytes are an attribute
+define("NC_DIMENSION", 10); //!< Flag indicating bytes are a dimension
+define("NC_VARIABLE",  11); //!< Flag indicating bytes are a variable
+define("NC_ATTRIBUTE", 12); //!< Flag indicating bytes are an attribute
 /**#@-*/
 
 
 /**#@+
  * Default fill values.
  */
-define("FILL_CHAR",   0x00, true);
-define("FILL_BYTE",   0x81, true);
-define("FILL_SHORT",  0x8001, true);
-define("FILL_INT",    0x80000001, true);
-define("FILL_FLOAT",  0x7cf00000, true);
-define("FILL_DOUBLE", -9999.99, true);
-// define("FILL_DOUBLE", 0x479e00000000, true);
+define("FILL_CHAR",   0x00);
+define("FILL_BYTE",   0x81);
+define("FILL_SHORT",  0x8001);
+define("FILL_INT",    0x80000001);
+define("FILL_FLOAT",  0x7cf00000);
+define("FILL_DOUBLE", -9999.99);
+// define("FILL_DOUBLE", 0x479e00000000);
 /**#@-*/
 
 
@@ -93,13 +93,13 @@ class NetCDF {
    * @param string $fpath A path to a NetCDF file existing on disk.
    * @return object
    */
-  function NetCDF($fpath) {
+  function __construct($fpath) {
     if( !$this->open($fpath) ) { 
       return false;
     }
     register_shutdown_function(array($this,'__shutdown__'));
     return $this;
-  } // END: function NetCDF($fpath)
+  } // END: function __construct($fpath)
 
 
 
@@ -1058,12 +1058,12 @@ class NetCDF {
         // byte-swap big-endian => little-endian
         // Note: if you're on a big-endian machine, you'll need to remove this.
         // TODO: Fix so we don't have to worry.
-        $ch = $bytes{0};
-        $bytes{0} = $bytes{3};
-        $bytes{3} = $ch;
-        $ch = $bytes{1};
-        $bytes{1} = $bytes{2};
-        $bytes{2} = $ch;
+        $ch = $bytes[0];
+        $bytes[0] = $bytes[3];
+        $bytes[3] = $ch;
+        $ch = $bytes[1];
+        $bytes[1] = $bytes[2];
+        $bytes[2] = $ch;
         $up = unpack("f",$bytes);
         return $up[1];
       case NC_DOUBLE:
@@ -1071,18 +1071,18 @@ class NetCDF {
         // byte-swap big-endian => little-endian
         // Note: if you're on a big-endian machine, you'll need to remove this.
         // TODO: Fix so we don't have to worry.
-        $ch = $bytes{0};
-        $bytes{0} = $bytes{7};
-        $bytes{7} = $ch;
-        $ch = $bytes{1};
-        $bytes{1} = $bytes{6};
-        $bytes{6} = $ch;
-        $ch = $bytes{2};
-        $bytes{2} = $bytes{5};
-        $bytes{5} = $ch;
-        $ch = $bytes{3};
-        $bytes{3} = $bytes{4};
-        $bytes{4} = $ch;
+        $ch = $bytes[0];
+        $bytes[0] = $bytes[7];
+        $bytes[7] = $ch;
+        $ch = $bytes[1];
+        $bytes[1] = $bytes[6];
+        $bytes[6] = $ch;
+        $ch = $bytes[2];
+        $bytes[2] = $bytes[5];
+        $bytes[5] = $ch;
+        $ch = $bytes[3];
+        $bytes[3] = $bytes[4];
+        $bytes[4] = $ch;
         $up = unpack("d",$bytes);
         return $up[1];
     }
