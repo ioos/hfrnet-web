@@ -1,17 +1,16 @@
 <?php
-// getRadial.php
-// Retrieves radial summaries from S3 for a given station and time range, outputs GeoJSON points.
+// Retrieves radial summaries for a given station and time range, outputs GeoJSON points.
 
-require_once '/var/www/lib/diagnostics/lluvfile_s3.php'; // lluvFile class for reading S3 rainfall data
+require_once '/var/www/lib/diagnostics/lluvfile_s3.php'; // lluvFile class for reading radial files
+require_once '/var/www/lib/diagnostics/HFRNetwork.php';
 
 // S3 bucket configuration
 $S3_BUCKET    = 'rps-nccf-hfrnet-dissemination-prod';
 $LLUV_S3_ROOT = "https://{$S3_BUCKET}.s3.amazonaws.com";
 
-// Default network, station code, and debug flag
+// Default network and station code
 $DEFAULT_NET   = 'SIO';
 $DEFAULT_STA   = 'SDBP';
-$DEBUG         = false;
 
 // Initialize coverage counts and GeoJSON template
 $coverage       = [];
@@ -24,84 +23,42 @@ $net       = $urlargs['net']       ?? $DEFAULT_NET;
 $sta       = strtoupper($urlargs['sta'] ?? $DEFAULT_STA);
 $starttime = isset($urlargs['starttime']) ? (int)$urlargs['starttime'] : time() - 86400; // default: last 24 hours
 $endtime   = isset($urlargs['endtime'])   ? (int)$urlargs['endtime']   : time();
-$pattern   = $urlargs['pattern']   ?? 'm';
+$pattern   = strtolower($urlargs['pattern'] ?? 'm');
 
-// Check that at least one object exists under a given S3 prefix
-function s3PrefixExists(string $bucket, string $prefix): bool {
-    $url = "https://{$bucket}.s3.amazonaws.com/?prefix={$prefix}&max-keys=1";
-    $xml = @simplexml_load_file($url);
-    return ($xml && isset($xml->Contents));
+if (!in_array($pattern, ['m', 'i', 'wera', 'lera'], true)) {
+    header('HTTP/1.1 400 Bad Request');
+    exit('Invalid pattern');
 }
 
-// Validate station prefix in S3, return 404 if not found
-if (! s3PrefixExists($S3_BUCKET, "radials/{$sta}/")) {
+// Filenames come from radialfiles. Listing the month in S3 stops at 1000 keys,
+// which drops late-month RDLm files because RDLi names sort first.
+$hfr = new HFRNetwork($net, $sta);
+if (!$hfr->hasStation()) {
     header('HTTP/1.1 404 Not Found');
     exit("Invalid network/station: {$net}/{$sta}");
 }
+$hfr->setStartTime($starttime);
+$hfr->setEndtime($endtime);
+$rows = $hfr->getRadialCoverageFiles($pattern);
 
-// Build a monthly period from start to end times
-$start  = (new DateTime("@$starttime"))->modify('first day of this month');
-$end    = (new DateTime("@$endtime"))->modify('first day of next month')->modify('-1 second');
-$period = new DatePeriod($start, new DateInterval('P1M'), $end);
-
-// Iterate through each month to list and process files
-foreach ($period as $dt) {
-    $yearmonth = $dt->format('Y-m');
-    $prefix    = "radials/{$sta}/{$yearmonth}/";
-    $url       = "{$LLUV_S3_ROOT}/?prefix={$prefix}";
-    $xml       = @simplexml_load_file($url);
-
-    if (!$xml || empty($xml->Contents)) {
-        continue; // no files for this month
+foreach ($rows as $row) {
+    $path = HFRNetwork::radialObjectPath($row);
+    if ($path === '') {
+        continue;
     }
 
-    // Gather all object keys for the month
-    $keys = [];
-    foreach ($xml->Contents as $c) {
-        $keys[] = (string)$c->Key;
+    $url = "{$LLUV_S3_ROOT}{$path}";
+    try {
+        $lluv = new lluvFile($url);
+    } catch (NotFoundException $e) {
+        continue;
     }
+    $datas = $lluv->getLLUVData();
 
-    // Select filename regex based on radial type
-    switch ($pattern) {
-        case 'i':
-            $regex = '/^RDLi_/';
-            break;
-        case 'wera':
-        case 'lera':
-            $regex = '/^RDL/';
-            break;
-        default:
-            $regex = '/^RDLm_/';
-            break;
-    }
-
-    // Filter to files matching the chosen pattern
-    $files = array_filter($keys, fn($fullKey) => preg_match($regex, basename($fullKey)));
-    sort($files);
-
-    // Process each file that falls within the requested time range
-    foreach ($files as $key) {
-        if (! preg_match('/(\d{4})_(\d{2})_(\d{2})_(\d{2})(\d{2})/', $key, $m)) {
-            continue; // skip if timestamp not found
-        }
-        $file_date = gmmktime((int)$m[4], (int)$m[5], 0, (int)$m[2], (int)$m[3], (int)$m[1]);
-        $lastSec   = strtotime('-1 second', strtotime('+1 hour', $file_date));
-
-        // Skip files outside start/end window
-        if ($starttime >= $lastSec || $endtime < $file_date) {
-            continue;
-        }
-
-        // Load and parse lluv data from S3
-        $url   = "{$LLUV_S3_ROOT}/{$key}";
-        $lluv  = new lluvFile($url);
-        $datas = $lluv->getLLUVData();
-
-        $totalFileCount++;
-        foreach ($datas as $data) {
-            $latlon = $data['LATD'] . '/' . $data['LOND'];
-            $coverage[$latlon] = ($coverage[$latlon] ?? 0) + 1;
-        }
+    $totalFileCount++;
+    foreach ($datas as $data) {
+        $latlon = $data['LATD'] . '/' . $data['LOND'];
+        $coverage[$latlon] = ($coverage[$latlon] ?? 0) + 1;
     }
 }
 

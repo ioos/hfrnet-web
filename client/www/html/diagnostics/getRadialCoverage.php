@@ -1,6 +1,7 @@
 <?php
 // Load helper for geographic calculations
 require_once __DIR__ . '/computeEarthPosition.php';
+require_once '/var/www/lib/diagnostics/HFRNetwork.php';
 
 // Configuration for S3 bucket and URL root
 $S3_BUCKET    = 'rps-nccf-hfrnet-dissemination-prod';
@@ -25,70 +26,21 @@ if (!in_array($pattern, ['m', 'i', 'wera', 'lera'], true)) {
     exit('Invalid pattern');
 }
 
-/**
- * List "folders" (CommonPrefixes) under a given prefix in the S3 bucket
- */
-function s3ListPrefixes(string $bucket, string $prefix): array {
-    $url = "https://{$bucket}.s3.amazonaws.com/?prefix={$prefix}&delimiter=/";
-    $xml = @simplexml_load_file($url);
-    if (!$xml || empty($xml->CommonPrefixes)) {
-        return [];
-    }
-    $folders = [];
-    foreach ($xml->CommonPrefixes as $cp) {
-        $folders[] = (string)$cp->Prefix;
-    }
-    return $folders;
-}
-
-/**
- * List all object keys under a given prefix in the S3 bucket
- */
-function s3ListObjects(string $bucket, string $prefix): array {
-    $url = "https://{$bucket}.s3.amazonaws.com/?prefix={$prefix}";
-    $xml = @simplexml_load_file($url);
-    if (!$xml || empty($xml->Contents)) {
-        return [];
-    }
-    $keys = [];
-    foreach ($xml->Contents as $c) {
-        $keys[] = (string)$c->Key;
-    }
-    return $keys;
-}
-
-// Build prefix for station and find available month folders
-$basePrefix = "radials/{$sta}/";
-$months     = s3ListPrefixes($S3_BUCKET, $basePrefix);
-if (empty($months)) {
+// The filename comes from latest_radialfiles, the same row the station page
+// labels "Most Recent File". Listing the month in S3 stops at 1000 keys, and
+// RDLi names sort before RDLm, so that listing drops the real latest measured file.
+$hfr = new HFRNetwork($net, $sta);
+if (!$hfr->hasStation()) {
     header('HTTP/1.1 404 Not Found');
     exit("No data for station {$sta}");
 }
-sort($months);  // ensure chronological order by lexicographic sort
-$latestMonth = end($months);
-
-// Fetch all files in the latest month and filter by radial pattern
-$allKeys  = s3ListObjects($S3_BUCKET, $latestMonth);
-switch ($pattern) {
-    case 'i':
-        $regex = '/^RDLi_/';
-        break;
-    case 'wera':
-    case 'lera':
-        $regex = '/^RDL/';
-        break;
-    default:
-        $regex = '/^RDLm_/';
-        break;
-}
-$filtered = array_filter($allKeys, fn($key) => preg_match($regex, basename($key)));
-if (empty($filtered)) {
+$row = $hfr->getLatestRadialCoverageFile($pattern);
+$path = is_array($row) ? HFRNetwork::radialObjectPath($row) : '';
+if ($path === '') {
     header('HTTP/1.1 404 Not Found');
     exit("No files matching pattern '{$pattern}'");
 }
-sort($filtered);
-$latestKey = end($filtered);
-$fileUrl   = "{$LLUV_S3_ROOT}/{$latestKey}";
+$fileUrl = "{$LLUV_S3_ROOT}{$path}";
 
 // Read the radial file, skipping empty lines
 $lines = @file($fileUrl, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
