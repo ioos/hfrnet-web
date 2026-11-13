@@ -32,7 +32,7 @@ Compose or directly in a Python environment.
 
 ### 2. Local Python Environment
 #### Prerequisites:
-- Ensure Python 3.9 is installed.
+- Ensure Python 3.11 or newer is installed (the Docker image uses Python 3.12).
 - Install dependencies:
   ```bash
   pip install -r requirements.txt
@@ -65,7 +65,9 @@ Compose or directly in a Python environment.
 
 ## Endpoints
 - `/`: Fetch processed data based on provided parameters.
-- `/hist`: Retrieve historical data.
+- `/hist`: Retrieve historical data ending at the `time` Unix timestamp.
+  If omitted, the end time defaults to now minus 15 hours. Hourly
+  products return the preceding six days.
 - `/waves`: Retrieve wave-related data.
 - `/waves/hist`: Retrieve historical wave data.
 
@@ -77,5 +79,25 @@ For details on the API parameters, refer to the comments in `radialdata.py`.
 - `FLASK_ENV`: Flask environment (e.g., `development`, `production`).
 - `FLASK_APP`: Entry point script (default: `radialdata.py`).
 - `HFRNET_DIR`: Directory path for HFRNET data.
+
+## S3 history lookup
+
+RTV discovery and downloads share an obstore S3 client configured through the
+standard AWS environment variables, including `AWS_BUCKET_NAME` and `AWS_REGION`.
+Production requests continue to use the configured AWS credentials. For local
+read-only testing against a public bucket, set `AWS_SKIP_SIGNATURE=true`.
+
+`/hist` lists each required day directory once, sharing listings across hours and
+regions. Monthly and annual products use their respective averages directories.
+Listings are nonrecursive, run with at most four concurrent requests per lookup,
+and cache up to 128 nonempty directories for five minutes. The latest matching
+filename revision is selected for each requested time. Processing loads only the
+nearest point's velocity variables before closing each NetCDF dataset.
+
+Run the API tests from the project root after installing `pytest`:
+
+```bash
+PYTHONPATH=api AWS_BUCKET_NAME=test AWS_REGION=us-east-1 .venv/bin/python -m pytest api/tests -q
+```
 
 ---
