@@ -1,9 +1,89 @@
+import asyncio
+from collections import OrderedDict
 from datetime import datetime, timezone
+from time import monotonic
+
+import obstore as obs
 from dateutil.relativedelta import relativedelta
-from config import config, bucket, s3
+from config import config, bucket, s3_store
 
 
-def get_files(regions, prod, req_time):
+_LISTING_TTL = 300
+_LISTING_CACHE_SIZE = 128
+_LISTING_CONCURRENCY = 4
+_listing_cache = OrderedDict()
+
+
+def _file_prefix(region, prod, dt):
+    """Return the directory and literal S3 key prefix for a product/time."""
+    rootdir = str(config["directories"]["rootdir"]).strip("/")
+    pfx, res = prod.split("_")
+    stem = f"rtv-{region.lower()}-{res}-"
+    if pfx == "h":
+        directory = f"{rootdir}/{dt:%Y/%m/%d}"
+        stem += "uwls_v1r0_hfr_s"
+    elif pfx == "a":
+        directory = f"{rootdir}/{dt:%Y/%m/%d}/averages"
+        stem += "25h-avg_v1r0_hfr_s"
+    elif pfx in ("am", "ma"):
+        return f"{rootdir}/{dt:%Y/%m}/averages", stem + "mon-avg_v1r0_hfr_s"
+    else:
+        return f"{rootdir}/{dt:%Y}/averages", stem + "ann-avg_v1r0_hfr_s"
+    return directory, stem + dt.strftime("%Y%m%d%H") + "00"
+
+
+async def _list_files(directory):
+    cached = _listing_cache.get(directory)
+    if cached is not None:
+        expires, paths = cached
+        if monotonic() < expires:
+            _listing_cache.move_to_end(directory)
+            return paths
+        del _listing_cache[directory]
+
+    # Obstore prefixes match path segments, not partial filenames. A delimiter
+    # listing stays within the day/month/year averages directory, even when
+    # the archive contains millions of files under neighboring directories.
+    result = await obs.list_with_delimiter_async(s3_store, prefix=directory)
+    paths = tuple(
+        obj["path"] for obj in result["objects"]
+        if obj["path"].endswith(".nc") and obj["path"].rsplit("/", 1)[0] == directory
+    )
+    # Match the previous five-minute listings cache without retaining an
+    # unbounded number of archive directories. Missing data is not cached.
+    if paths:
+        _listing_cache[directory] = (monotonic() + _LISTING_TTL, paths)
+        _listing_cache.move_to_end(directory)
+        while len(_listing_cache) > _LISTING_CACHE_SIZE:
+            _listing_cache.popitem(last=False)
+    return paths
+
+
+async def _get_matching_files(lookups):
+    semaphore = asyncio.Semaphore(_LISTING_CONCURRENCY)
+
+    async def list_directory(directory):
+        async with semaphore:
+            return directory, await _list_files(directory)
+
+    # Deduplicate directories across all hours and overlapping regions.
+    directories = dict.fromkeys(directory for directory, _ in lookups)
+    listings = dict(await asyncio.gather(*(list_directory(d) for d in directories)))
+    files = []
+    seen = set()
+    for directory, prefix in lookups:
+        latest = max(
+            (path for path in listings[directory] if path.startswith(f"{directory}/{prefix}")),
+            default=None,
+        )
+        if latest is not None and latest not in seen:
+            seen.add(latest)
+            # Keep the bucket/key format expected by the processing layer.
+            files.append(f"{bucket}/{latest}")
+    return files
+
+
+async def get_files(regions, prod, req_time):
     """Gets the file paths that satisfy the given input regions, time, and product
 
     :param regions: list of abbreviated regions
@@ -11,56 +91,12 @@ def get_files(regions, prod, req_time):
     :param req_time: epoch time
     :return: list of file paths
     """
-    rootdir = bucket + str(config["directories"]["rootdir"])
-    files = []
-    pfx, res = prod.split("_")
-
     # utc datetime object for epoch time
     dt = datetime.fromtimestamp(req_time, tz=timezone.utc)
-
-    # Check if file(s) exists for each region. Because end time and created time are at the end of the file name, we can
-    # just use a glob match for everything before those times (which we do not care about)
-    for region in regions:
-        # TODO add file name caching here. Could use region + product + request time as key for each file
-        if pfx == "h":
-            dirfiles = (
-                f"{dt.strftime('%Y/%m/%d')}/"
-                f"rtv-{region.lower()}-{res}-uwls_v1r0_hfr_s{dt.strftime('%Y%m%d%H')}00*.nc"
-            )
-        elif pfx == "a":
-            dirfiles = (
-                f"{dt.strftime('%Y/%m/%d')}/"
-                f"averages/"
-                f"rtv-{region.lower()}-{res}-25h-avg_v1r0_hfr_s{dt.strftime('%Y%m%d%H')}00*.nc"
-            )
-        elif pfx == "am" or pfx == "ma":
-            dirfiles = (
-                f"{dt.strftime('%Y/%m')}/"
-                f"averages/"
-                f"rtv-{region.lower()}-{res}-mon-avg_v1r0_hfr_s*.nc"
-            )
-        else:
-            dirfiles = (
-                f"{dt.strftime('%Y')}/"
-                f"averages/"
-                f"rtv-{region.lower()}-{res}-ann-avg_v1r0_hfr_s*.nc"
-            )
-
-        # TODO: can this be async?
-        # glob all files for the given region + time
-        all_files = s3.glob(f"{rootdir}/" + dirfiles)
-
-        if len(all_files) > 0:
-            # sort matches in descending order to get file with latest creation date
-            # s3 sorts lexicographically in utf-8 order
-            #all_files.sort(reverse=True)
-            if all_files[-1] not in files:
-                files.append(all_files[-1])
-
-    return files
+    return await _get_matching_files([_file_prefix(region, prod, dt) for region in regions])
 
 
-def get_hist_files(t0, t1, regions, prod):
+async def get_hist_files(t0, t1, regions, prod):
     """Gets a list of file paths needed for a time series request
 
     :param t0: epoch start time
@@ -69,20 +105,15 @@ def get_hist_files(t0, t1, regions, prod):
     :param prod: product string in the request url format e.g. 'a_6km'
     :return: array containing the file paths for the time series
     """
-    ts_files = []
+    lookups = []
 
-    pfx, res = prod.split("_")
+    pfx, _ = prod.split("_")
     t0 = datetime.fromtimestamp(t0, timezone.utc)
     t1 = datetime.fromtimestamp(t1, timezone.utc)
     ts = t0
 
     while ts <= t1:
-        newfiles = get_files(regions, prod, ts.timestamp())
-        if len(newfiles) > 0:
-            # add each unique new file to files, ignoring potential duplicates
-            for file in newfiles:
-                if file not in ts_files:
-                    ts_files.append(file)
+        lookups.extend(_file_prefix(region, prod, ts) for region in regions)
 
         # increment ts by 1 year/month depending on pfx type to minimize no. of get_files calls
         if pfx == "am" or pfx == "ma":
@@ -92,4 +123,4 @@ def get_hist_files(t0, t1, regions, prod):
         else:
             ts = ts + relativedelta(hours=1)
 
-    return ts_files
+    return await _get_matching_files(lookups)
