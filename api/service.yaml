@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hfrnet-api
+  labels:
+    app: hfrnet-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hfrnet-api
+  template:
+    metadata:
+      labels:
+        app: hfrnet-api
+    spec:
+      containers:
+        - name: api
+          # Replace the example account/region with your ECR registry.
+          image: 579273261343.dkr.ecr.us-east-1.amazonaws.com/hfrnet/api:mcp-test
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 5000
+          env:
+            - name: NUM_PROCESS
+              value: "1"
+          envFrom:
+            - secretRef:
+                name: hfrnet-api-env
+          volumeMounts:
+            - name: config
+              mountPath: /app/radialdata.ini
+              subPath: radialdata.ini
+              readOnly: true
+          startupProbe:
+            httpGet:
+              path: /openapi.json
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /openapi.json
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /openapi.json
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+      volumes:
+        - name: config
+          secret:
+            secretName: hfrnet-api-config
+            items:
+              - key: radialdata.ini
+                path: radialdata.ini
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hfrnet-api
+  labels:
+    app: hfrnet-api
+spec:
+  type: ClusterIP
+  selector:
+    app: hfrnet-api
+  ports:
+    - name: http
+      port: 5000
+      targetPort: http
+      protocol: TCP
