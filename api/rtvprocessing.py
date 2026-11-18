@@ -1,8 +1,6 @@
 import io
 import asyncio
 import logging
-from concurrent.futures import ProcessPoolExecutor
-from os import getenv
 import xarray as xr
 import obstore as obs
 import numpy as np
@@ -10,7 +8,7 @@ import pandas as pd
 import geopandas as gpd
 from config import s3_store
 from fastapi import HTTPException
-import multiprocessing
+from processingpool import process_files
 
 logger = logging.getLogger("uvicorn")
 
@@ -204,22 +202,7 @@ async def get_data(files, lat1, lon1, lat2, lon2):
             status_code=500, detail="Error downloading RTV files needed for request."
         )
 
-    # process data_files into dataframes in a process pool
-    num_process = int(getenv("NUM_PROCESS"))
-    if not num_process:
-        num_process = 1
-
-    with ProcessPoolExecutor(max_workers=num_process) as executor:
-        loop = asyncio.get_running_loop()
-        tasks = []
-        for data_file in data_files:
-            tasks.append(
-                loop.run_in_executor(
-                    executor, process_file, data_file, lat1, lon1, lat2, lon2
-                )
-            )
-
-    results = await asyncio.gather(*tasks)
+    results = await process_files(process_file, data_files, lat1, lon1, lat2, lon2)
 
     # drop empty results
     dataframes = [result for result in results if result is not None]
@@ -266,33 +249,7 @@ async def get_hist_data(files, lat, lon, request):
             status_code=500, detail="Error downloading RTV files needed for request."
         )
 
-    # process data_files into dataframes in a process pool
-    num_process_env = getenv("NUM_PROCESS")
-    try:
-        num_process = int(num_process_env)
-        if num_process < 1:
-            raise ValueError
-    except (TypeError, ValueError):
-        num_process = multiprocessing.cpu_count()
-
-    with ProcessPoolExecutor(max_workers=num_process) as executor:
-        loop = asyncio.get_running_loop()
-        tasks = []
-        for data_file in data_files:
-            tasks.append(
-                loop.run_in_executor(executor, process_hist_file, data_file, lat, lon)
-            )
-
-        group = asyncio.gather(*tasks)
-
-        # Await inside the context: exiting it first calls shutdown(wait=True)
-        # synchronously and blocks every other request on this event loop.
-        try:
-            results = await group
-        except asyncio.CancelledError:
-            for task in tasks:
-                task.cancel()
-            raise
+    results = await process_files(process_hist_file, data_files, lat, lon)
 
     # drop empty results
     datasets = [result for result in results if result is not None]

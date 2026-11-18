@@ -79,6 +79,16 @@ For details on the API parameters, refer to the comments in `radialdata.py`.
 - `FLASK_ENV`: Flask environment (e.g., `development`, `production`).
 - `FLASK_APP`: Entry point script (default: `radialdata.py`).
 - `HFRNET_DIR`: Directory path for HFRNET data.
+- `NUM_PROCESS`: Shared NetCDF processing processes per API worker. Defaults to
+  `1`; unset, invalid, or nonpositive values use `1`. Both totals endpoints share
+  this pool, with at most twice this number of submitted file jobs (running plus
+  queued). Multiply
+  by the Uvicorn worker count when sizing the deployment (the Docker image uses
+  two API workers).
+
+The processing pool is created on first use and reused across requests. Workers
+use the `spawn` start method to avoid inheriting S3/HDF5 state. Waiting for file
+processing and draining the pool on API shutdown do not block the event loop.
 
 ## S3 history lookup
 
