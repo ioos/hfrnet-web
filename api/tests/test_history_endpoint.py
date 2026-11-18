@@ -67,11 +67,11 @@ def test_points_awaits_file_discovery(monkeypatch):
 
 @pytest.mark.parametrize("method", ["any", "all"])
 def test_latest_awaits_file_discovery(monkeypatch, method):
-    discover = AsyncMock(side_effect=[[], ["bucket/history.nc"]])
+    discover = AsyncMock(return_value=(1793232000, ["bucket/history.nc"]))
     monkeypatch.setattr(radialdata, "get_regions", lambda *args: ["USWC"])
-    monkeypatch.setattr(radialdata, "get_files", discover)
+    monkeypatch.setattr(radialdata, "get_latest_files", discover)
     result = asyncio.run(radialdata.get_latest(prod="a_6km", method=method))
-    assert discover.await_count == 2
-    first, second = discover.await_args_list
-    assert first.args[2] - second.args[2] == 3600
-    assert result["timestamp"] == second.args[2]
+    discover.assert_awaited_once()
+    assert discover.await_args.args[0:2] == (["USWC"], "a_6km")
+    assert discover.await_args.args[3:] == (168, method)
+    assert result["timestamp"] == 1793232000
