@@ -140,19 +140,18 @@ def process_hist_file(data_file, lat, lon):
     data = io.BytesIO(data_file["data"])
     try:
         logger.info(f"Loading file {data_file['file']}")
-        ds = xr.load_dataset(data, engine="h5netcdf")
-    except:
+        with xr.open_dataset(data, engine="h5netcdf") as ds:
+            ds_uv = preprocess_file(ds)
+            if ds_uv is None:
+                return None
+            # Load only the requested point and variables, then close the file
+            # before returning a dataset to the parent process.
+            ds_uv = ds_uv.sel(lat=[lat], lon=[lon], method="nearest").load()
+    except Exception:
         # logger not safe in multiprocessing pool apparently
         logger.error("There was an error opening %s" % data_file["file"])
         return None
 
-    # preprocess data
-    ds_uv = preprocess_file(ds)
-    if ds_uv is None:
-        return None
-
-    # sel nearest lat/lon to the point we want
-    ds_uv = ds_uv.sel(lat=[lat], lon=[lon], method="nearest")
     if ds_uv.u.size == 0 or ds_uv.v.size == 0:
         return None
 
@@ -284,14 +283,16 @@ async def get_hist_data(files, lat, lon, request):
                 loop.run_in_executor(executor, process_hist_file, data_file, lat, lon)
             )
 
-    group = asyncio.gather(*tasks)
+        group = asyncio.gather(*tasks)
 
-    try:
-        results = await group
-    except asyncio.CancelledError:
-        for task in tasks:
-            task.cancel()
-        raise
+        # Await inside the context: exiting it first calls shutdown(wait=True)
+        # synchronously and blocks every other request on this event loop.
+        try:
+            results = await group
+        except asyncio.CancelledError:
+            for task in tasks:
+                task.cancel()
+            raise
 
     # drop empty results
     datasets = [result for result in results if result is not None]

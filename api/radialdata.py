@@ -3,6 +3,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
+from typing import Literal
 from rtvprocessing import get_data, get_hist_data
 from rtvfiles import get_files, get_hist_files
 from config import config
@@ -100,18 +101,6 @@ async_engine = create_async_engine(
 # Session factory bound to module-level engine
 async_session = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
 
-# @app.on_event("startup")
-# def startup_event():
-#    # load config file once at startup and attach to app.state
-#    app.state.config = config
-#
-#    # s3 resources
-#    app.state.bucket = getenv('AWS_BUCKET_NAME')
-#    app.state.s3_store = S3Store()
-#    # obstore store may use fsspec internally but get_files uses s3fs; keep both.
-#    app.state.s3 = s3fs.S3FileSystem(anon=False, use_listings_cache=True, listings_expiry_time=300)
-
-
 @app.on_event("shutdown")
 async def shutdown_event():
     # remove/cleanup database
@@ -164,7 +153,7 @@ async def get_points(
             detail="Request bounding box contains no valid RTV regions.",
         )
 
-    files = get_files(regions, prod, time)
+    files = await get_files(regions, prod, time)
     if len(files) == 0:
         raise HTTPException(
             status_code=204,
@@ -184,11 +173,12 @@ async def get_history(
     lat1: float = Query(float(config["urls"]["default_lat1"])),
     lon2: float = Query(float(config["urls"]["default_lon2"])),
     lat2: float = Query(float(config["urls"]["default_lat2"])),
-    t1: float = Query(None),
+    time: float = Query(None),
     prod: str = Query(config["urls"]["default_prod"]),
-    out: str = Query(config["urls"]["default_out"], enum=["csv", "json"]),
+    out: Literal["csv", "json"] = Query(config["urls"]["default_out"]),
 ):
-    # Set default t1 if not provided
+    # Use the requested time as the end of the history window.
+    t1 = time
     if t1 is None:
         t1 = time_module.time() - float(config["urls"]["default_time_offset"])
     pfx, res = prod.split("_")
@@ -217,7 +207,7 @@ async def get_history(
         )
 
     logger.info("getting hist files")
-    files = get_hist_files(t0, t1, regions, prod)
+    files = await get_hist_files(t0, t1, regions, prod)
     if len(files) == 0:
         raise HTTPException(
             status_code=204,
@@ -406,7 +396,7 @@ async def get_latest(
     lat2: float = Query(float(config["urls"]["default_lat2"])),
     lon2: float = Query(float(config["urls"]["default_lon2"])),
     prod: str = Query(config["urls"]["default_prod"]),
-    method: str = Query("any", enum=["any", "all"]),
+    method: Literal["any", "all"] = Query("any"),
 ):
     """
     Gets the latest available timestep for a given product and bounding box.
@@ -447,7 +437,7 @@ async def get_latest(
     # work backwards until request files are found
     latest_files = []
     while len(latest_files) == 0:
-        newfiles = get_files(regions, prod, ts.timestamp())
+        newfiles = await get_files(regions, prod, ts.timestamp())
 
         # if we are using 'any' method, we are looking for any files for a given timestep. Otherwise we want
         # len(newfiles) to be equal to len(regions) representing successful data for each region
