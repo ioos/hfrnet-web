@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
 from typing import Literal
 from rtvprocessing import get_data, get_hist_data
+from processingpool import shutdown_processing_pool
 from rtvfiles import get_files, get_hist_files
 from config import config
 
@@ -105,9 +106,12 @@ async_session = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit
 async def shutdown_event():
     # remove/cleanup database
     global async_engine
-    if async_engine is not None:
-        await async_engine.dispose()
-        del async_engine
+    try:
+        await shutdown_processing_pool()
+    finally:
+        if async_engine is not None:
+            await async_engine.dispose()
+            del async_engine
 
 
 # TODO: use model like this or use some kind of Pydantic geospatial package

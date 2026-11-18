@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pandas as pd
 import pytest
@@ -75,3 +75,19 @@ def test_latest_awaits_file_discovery(monkeypatch, method):
     first, second = discover.await_args_list
     assert first.args[2] - second.args[2] == 3600
     assert result["timestamp"] == second.args[2]
+
+
+@pytest.mark.parametrize("pool_error", [None, RuntimeError("shutdown failed")])
+def test_shutdown_cleans_up_processing_pool_and_database(monkeypatch, pool_error):
+    shutdown = AsyncMock(side_effect=pool_error)
+    engine = Mock(dispose=AsyncMock())
+    monkeypatch.setattr(radialdata, "shutdown_processing_pool", shutdown)
+    monkeypatch.setattr(radialdata, "async_engine", engine)
+
+    if pool_error:
+        with pytest.raises(RuntimeError, match="shutdown failed"):
+            asyncio.run(radialdata.shutdown_event())
+    else:
+        asyncio.run(radialdata.shutdown_event())
+    shutdown.assert_awaited_once_with()
+    engine.dispose.assert_awaited_once_with()
