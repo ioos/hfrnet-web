@@ -185,3 +185,26 @@ def test_history_listing_concurrency_is_bounded(s3):
     assert get_hist_files(start.timestamp(), (start + timedelta(days=6)).timestamp(),
                           ["USWC"], "a_6km") == []
     assert peak == rtvfiles._LISTING_CONCURRENCY
+
+
+def test_latest_search_lists_empty_day_only_once(s3):
+    store, _ = s3
+    result = asyncio.run(rtvfiles.get_latest_files(
+        ["USWC", "USEGC"], "h_6km", dt(2026, 10, 29, 23).timestamp(), max_periods=24))
+    assert result == (None, [])
+    assert store.await_count == 1
+
+
+@pytest.mark.parametrize("method,expected_time", [
+    ("any", dt(2026, 10, 29, 5)), ("all", dt(2026, 10, 29, 4)),
+])
+def test_latest_matches_any_or_all_regions(s3, method, expected_time):
+    store, objects = s3
+    now = dt(2026, 10, 29, 5)
+    objects.extend([key(now, prod="h_6km"), key(expected_time, prod="h_6km"),
+                    key(dt(2026, 10, 29, 4), region="usegc", prod="h_6km")])
+    timestamp, files = asyncio.run(rtvfiles.get_latest_files(
+        ["USWC", "USEGC"], "h_6km", now.timestamp(), max_periods=2, method=method))
+    assert timestamp == expected_time.timestamp()
+    assert len(files) == (1 if method == "any" else 2)
+    assert store.await_count == 1

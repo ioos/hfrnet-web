@@ -3,9 +3,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
-from typing import Literal
+from typing import Annotated, Literal
 from rtvprocessing import get_data, get_hist_data
-from rtvfiles import get_files, get_hist_files
+from rtvfiles import get_files, get_hist_files, get_latest_files
+from datasetapi import router as datasets_router
+from datasetcatalog import normalize_product
 from config import config
 
 # TODO: several variable names conflict, consider better naming conventions
@@ -397,6 +399,7 @@ async def get_latest(
     lon2: float = Query(float(config["urls"]["default_lon2"])),
     prod: str = Query(config["urls"]["default_prod"]),
     method: Literal["any", "all"] = Query("any"),
+    lookback_periods: Annotated[int, Query(ge=1, le=744)] = 168,
 ):
     """
     Gets the latest available timestep for a given product and bounding box.
@@ -405,10 +408,13 @@ async def get_latest(
         JSON object with latest time and product info.
 
     Notes:
-        Uses get_regions and get_files to determine latest available data.
+        Uses get_regions and a bounded get_latest_files search.
         No database query is performed here.
     """
-    pfx, res = prod.split("_")
+    try:
+        normalize_product(prod)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
 
     # Default lat/lon includes all regions; this just gives us the option of limiting regions if needed
     regions = get_regions(lat1, lon1, lat2, lon2)
@@ -424,44 +430,12 @@ async def get_latest(
             detail="Request bounding box contains no valid RTV regions.",
         )
 
-    # get current time rounded to the nearest whole hour (latest possible file)
-    now = datetime.now(tz=timezone.utc)
-
-    if pfx == "am" or pfx == "ma":
-        ts = datetime(now.year, now.month, 1, tzinfo=now.tzinfo)
-    elif pfx == "ay" or pfx == "ya":
-        ts = datetime(now.year, 1, 1, tzinfo=now.tzinfo)
-    else:
-        ts = datetime(now.year, now.month, now.day, now.hour, tzinfo=now.tzinfo)
-
-    # work backwards until request files are found
-    latest_files = []
-    while len(latest_files) == 0:
-        newfiles = await get_files(regions, prod, ts.timestamp())
-
-        # if we are using 'any' method, we are looking for any files for a given timestep. Otherwise we want
-        # len(newfiles) to be equal to len(regions) representing successful data for each region
-        if method == "any":
-            if len(newfiles) > 0:
-                # add each unique new file to files, ignoring potential duplicates
-                for file in newfiles:
-                    if file not in latest_files:
-                        latest_files.append(file)
-        else:
-            if len(newfiles) == len(regions):
-                # add each unique new file to files, ignoring potential duplicates
-                for file in newfiles:
-                    if file not in latest_files:
-                        latest_files.append(file)
-
-        if not latest_files:
-            # increment ts backwards depending on pfx type to minimize no. of get_files calls
-            if pfx == "am" or pfx == "ma":
-                ts += relativedelta(months=-1)
-            elif pfx == "ay" or pfx == "ya":
-                ts += relativedelta(years=-1)
-            else:
-                ts += relativedelta(hours=-1)
+    timestamp, latest_files = await get_latest_files(
+        regions, prod, datetime.now(timezone.utc).timestamp(), lookback_periods, method
+    )
+    if not latest_files:
+        raise HTTPException(status_code=204, detail="No datasets found within the latest search window")
+    ts = datetime.fromtimestamp(timestamp, timezone.utc)
 
     # return the datetime and timestamp of the latest file found
     json = {
@@ -475,3 +449,4 @@ async def get_latest(
 
 
 app.include_router(radials_router)
+app.include_router(datasets_router)

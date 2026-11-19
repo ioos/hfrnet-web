@@ -1,5 +1,5 @@
 asyncmy
-fastapi
+fastapi>=0.115
 netCDF4==1.7.3
 numpy==2.3.4
 pandas==2.3.3

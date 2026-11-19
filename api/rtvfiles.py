@@ -59,7 +59,7 @@ async def _list_files(directory):
     return paths
 
 
-async def _get_matching_files(lookups):
+async def _get_matching_files(lookups, listings=None):
     semaphore = asyncio.Semaphore(_LISTING_CONCURRENCY)
 
     async def list_directory(directory):
@@ -67,8 +67,10 @@ async def _get_matching_files(lookups):
             return directory, await _list_files(directory)
 
     # Deduplicate directories across all hours and overlapping regions.
-    directories = dict.fromkeys(directory for directory, _ in lookups)
-    listings = dict(await asyncio.gather(*(list_directory(d) for d in directories)))
+    if listings is None:
+        listings = {}
+    directories = dict.fromkeys(directory for directory, _ in lookups if directory not in listings)
+    listings.update(await asyncio.gather(*(list_directory(d) for d in directories)))
     files = []
     seen = set()
     for directory, prefix in lookups:
@@ -114,6 +116,8 @@ async def get_hist_files(t0, t1, regions, prod):
 
     while ts <= t1:
         lookups.extend(_file_prefix(region, prod, ts) for region in regions)
+        if ts == t1:
+            break
 
         # increment ts by 1 year/month depending on pfx type to minimize no. of get_files calls
         if pfx == "am" or pfx == "ma":
@@ -124,3 +128,31 @@ async def get_hist_files(t0, t1, regions, prod):
             ts = ts + relativedelta(hours=1)
 
     return await _get_matching_files(lookups)
+
+
+def product_period(prod, when):
+    """Return the UTC product period containing a datetime and its increment."""
+    when = when.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    prefix, _ = prod.split("_")
+    if prefix in ("am", "ma"):
+        return when.replace(day=1, hour=0), relativedelta(months=1)
+    if prefix in ("ay", "ya"):
+        return when.replace(month=1, day=1, hour=0), relativedelta(years=1)
+    return when, relativedelta(hours=1)
+
+
+async def get_latest_files(regions, prod, req_time, max_periods=168, method="any"):
+    """Bounded latest lookup, retaining even empty listings for this search."""
+    when, step = product_period(prod, datetime.fromtimestamp(req_time, timezone.utc))
+    listings = {}
+    for _ in range(max_periods):
+        files = await _get_matching_files(
+            [_file_prefix(region, prod, when) for region in regions], listings
+        )
+        if files and (method == "any" or len(files) == len(set(regions))):
+            return when.timestamp(), files
+        try:
+            when -= step
+        except (ValueError, OverflowError):
+            break
+    return None, []

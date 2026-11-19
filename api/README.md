@@ -1,11 +1,12 @@
 # HFRNET API
 
-This repository contains the HFRNET API application for processing and retrieving data. The application is built using Python and Flask and supports running with 
+This repository contains the HFRNET API application for processing and retrieving data. The application is built using Python and FastAPI and supports running with
 Compose or directly in a Python environment.
 
 ## Features
 - Serve data endpoints for radial and wave data.
-- Flask-based API with several data endpoints.
+- Read-only totals dataset discovery and complete NetCDF metadata descriptions.
+- FastAPI application with OpenAPI documentation at `/docs` and `/openapi.json`.
 - Configurable using environment variables.
 
 ---
@@ -20,7 +21,8 @@ Compose or directly in a Python environment.
    ```bash
    cp .env.example .env
    ```
-   Update the `HFRNET_DIR` variable to point to your local data directory.
+   Set `AWS_BUCKET_NAME`, `AWS_REGION`, and the credentials needed for your data
+   bucket. For a public bucket, `AWS_SKIP_SIGNATURE=true` enables anonymous reads.
 
 2. Build and run the container:
    ```bash
@@ -42,13 +44,15 @@ Compose or directly in a Python environment.
    ```bash
    cp .env.example .env
    ```
-   Update the variables in `.env` as needed (e.g., `HFRNET_DIR`).
+   Configure the bucket, region, and AWS authentication variables in `.env`.
 
 2. Start the application:
    ```bash
-   flask run --host=0.0.0.0
+   uvicorn radialdata:app --host 0.0.0.0 --port 5000
    ```
-   The application will be accessible at `http://localhost:5000`.
+   Run from the `api/` directory after loading your AWS environment variables
+   into the shell (`.env` files are loaded by Compose, not automatically by this
+   Uvicorn command). The application will be accessible at `http://localhost:5000`.
 
 ---
 
@@ -59,7 +63,9 @@ Compose or directly in a Python environment.
 - `Dockerfile`: Docker image definition.
 - `docker-compose.yml`: Compose file for containerized deployment.
 - `.env.example`: Example environment variables configuration file.
-- `radialdata.wsgi`: WSGI entry point for the application.
+- `datasetapi.py`: Dataset discovery and metadata HTTP routes.
+- `datasetcatalog.py`: Search validation, dataset identifiers, and access records.
+- `datasetmetadata.py`: Original NetCDF schema, attributes, and coordinate samples.
 
 ---
 
@@ -70,15 +76,28 @@ Compose or directly in a Python environment.
   products return the preceding six days.
 - `/waves`: Retrieve wave-related data.
 - `/waves/hist`: Retrieve historical wave data.
+- `/latest`: Latest available timestep within a bounded search window. The
+  optional `lookback_periods` defaults to 168, with a maximum of 744 product
+  periods, including the current period. Returns 204 when none match.
+- `/datasets/options`: Supported products, resolutions, regions, and search rules.
+- `/datasets`: Available totals files by product, geography, and time selection.
+- `/datasets/{dataset_id}/metadata`: Original NetCDF contents and bounded
+  coordinate samples. Use `coordinate_limit=0` for schema-only inspection.
+
+See [the dataset API contract and examples](DATASETS.md) for integration from an
+MCP server or another client. This repository does not implement an MCP server.
 
 For details on the API parameters, refer to the comments in `radialdata.py`.
 
 ---
 
 ## Environment Variables
-- `FLASK_ENV`: Flask environment (e.g., `development`, `production`).
-- `FLASK_APP`: Entry point script (default: `radialdata.py`).
-- `HFRNET_DIR`: Directory path for HFRNET data.
+- `AWS_BUCKET_NAME`, `AWS_REGION`, and standard AWS credential variables:
+  configure the existing S3 client. `AWS_SKIP_SIGNATURE=true` permits anonymous
+  access when the configured bucket allows it.
+- `HFRNET_DATA_HTTPS_BASE_URL`: Optional HTTPS root for access links. Object keys
+  are appended to it; omit this variable to return only S3 links. Authentication
+  is deployment dependent, and no public HTTPS access is assumed.
 
 ## S3 history lookup
 
@@ -94,7 +113,8 @@ and cache up to 128 nonempty directories for five minutes. The latest matching
 filename revision is selected for each requested time. Processing loads only the
 nearest point's velocity variables before closing each NetCDF dataset.
 
-Run the API tests from the project root after installing `pytest`:
+Install `api/requirements-dev.txt` for the HTTP tests (`pytest` and `httpx`), then
+run the API tests from the project root:
 
 ```bash
 PYTHONPATH=api AWS_BUCKET_NAME=test AWS_REGION=us-east-1 .venv/bin/python -m pytest api/tests -q

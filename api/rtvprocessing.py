@@ -15,11 +15,13 @@ import multiprocessing
 logger = logging.getLogger("uvicorn")
 
 
-async def dl_file(file):
+async def dl_file(file, max_bytes=None):
     """Asynchronously download a file using obstore. Return the filename and the data itself"""
     data = await obs.get_async(s3_store, file)
     if not data:
         return None
+    if max_bytes is not None and data.meta["size"] > max_bytes:
+        raise HTTPException(status_code=413, detail="Dataset exceeds the metadata inspection size limit")
     data_bytes = await data.bytes_async()
     return {"file": file, "data": data_bytes}
 
