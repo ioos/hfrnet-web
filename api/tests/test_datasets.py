@@ -1,7 +1,7 @@
 import asyncio
 import json
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import numpy as np
@@ -13,6 +13,7 @@ from obstore.store import MemoryStore
 import config as settings
 import datasetapi
 import datasetcatalog
+import datasetmetadata
 import radialdata
 import rtvfiles
 import rtvprocessing
@@ -37,6 +38,7 @@ def file_key(when="202610290500000", *, region="uswc", prod="h_6km",
 def storage(monkeypatch):
     store = MemoryStore()
     monkeypatch.setattr(settings, "bucket", "test-bucket")
+    monkeypatch.setattr(settings, "s3_store", store)
     monkeypatch.setattr(rtvfiles, "bucket", "test-bucket")
     monkeypatch.setattr(rtvfiles, "s3_store", store)
     monkeypatch.setattr(rtvprocessing, "s3_store", store)
@@ -69,8 +71,8 @@ def test_discovery_returns_latest_revision_and_exact_access_identity(storage, mo
     latest = file_key()
     for key in (older, latest, file_key(region="usegc"), file_key(prod="h_1km")):
         obs.put(storage, key, b"not downloaded for discovery")
-    downloader = AsyncMock(side_effect=AssertionError("Discovery must not download data"))
-    monkeypatch.setattr(datasetapi, "dl_file", downloader)
+    downloader = Mock(side_effect=AssertionError("Discovery must not read data"))
+    monkeypatch.setattr(datasetmetadata.obs, "get_range", downloader)
     response = get("/datasets", {"prod": "h_6km", "regions": "USWC", "time": "2026-10-29T05:59:00Z"})
     assert response.status_code == 200, response.text
     result = response.json()
@@ -84,7 +86,7 @@ def test_discovery_returns_latest_revision_and_exact_access_identity(storage, mo
     assert record["candidate_bbox"] == [-130, 30, -115, 50]
     assert record["access"] == [{"url": f"s3://test-bucket/{latest}", "protocol": "s3",
                                   "media_type": "application/x-netcdf", "authentication": "deployment_dependent"}]
-    downloader.assert_not_awaited()
+    downloader.assert_not_called()
 
 
 def test_https_access_is_only_returned_when_configured(storage, monkeypatch):
@@ -238,12 +240,43 @@ def test_schema_only_metadata_reads_no_variable_values(storage, netcdf_contents,
     assert all(not coordinate["values"] for coordinate in response.json()["coordinates"].values())
 
 
+@pytest.mark.parametrize("coordinate_limit", [0, 2])
+def test_metadata_uses_small_ranges_instead_of_downloading_file(storage, tmp_path, monkeypatch, coordinate_limit):
+    source = xr.Dataset(
+        {"u": (("lat", "lon"), np.ones((1024, 1024), dtype=np.float32)),
+         "v": (("lat", "lon"), np.ones((1024, 1024), dtype=np.float32))},
+        coords={"lat": np.arange(1024), "lon": np.arange(1024)},
+    )
+    path = tmp_path / "large.nc"
+    source.to_netcdf(path, engine="h5netcdf")
+    contents = path.read_bytes()
+    expected = datasetmetadata.describe_netcdf(contents, coordinate_limit)
+    key = file_key()
+    obs.put(storage, key, contents)
+    ranges = Mock(wraps=obs.get_range)
+    monkeypatch.setattr(obs, "get_range", ranges)
+    monkeypatch.setattr(obs, "get", Mock(side_effect=AssertionError("Full download")))
+    monkeypatch.setattr(obs, "get_async", AsyncMock(side_effect=AssertionError("Full download")))
+
+    response = get(f"/datasets/{datasetcatalog.encode_dataset_id(key)}/metadata",
+                   {"coordinate_limit": coordinate_limit})
+    assert response.status_code == 200, response.text
+    result = response.json()
+    result.pop("dataset")
+    assert result == expected
+    transferred = sum(call.kwargs["end"] - call.kwargs["start"] for call in ranges.call_args_list)
+    assert 0 < transferred < len(contents) // 10
+    # HDF5 revisits headers; each cached block should be fetched only once here.
+    starts = [call.kwargs["start"] for call in ranges.call_args_list]
+    assert len(starts) == len(set(starts))
+
+
 @pytest.mark.parametrize("key", ["../../private.nc", "other/data.nc", "s3://other-bucket/private.nc",
                                    file_key().replace("hfrtv/", "private/"),
                                    file_key().replace("uswc", "unknown")])
 def test_metadata_rejects_identifiers_outside_totals_namespace(key, monkeypatch):
     downloader = AsyncMock(side_effect=AssertionError("Invalid ID reached storage"))
-    monkeypatch.setattr(datasetapi, "dl_file", downloader)
+    monkeypatch.setattr(datasetapi.obs, "head_async", downloader)
     response = get(f"/datasets/{datasetcatalog.encode_dataset_id(key)}/metadata")
     assert response.status_code == 422
     downloader.assert_not_awaited()
@@ -259,13 +292,19 @@ def test_missing_and_unreadable_datasets_have_explicit_errors(storage):
 
 
 def test_metadata_rejects_large_objects_before_reading_body(storage, monkeypatch):
-    from types import SimpleNamespace
-    body = AsyncMock(side_effect=AssertionError("Oversized body was downloaded"))
-    download = AsyncMock(return_value=SimpleNamespace(meta={"size": datasetapi.MAX_METADATA_BYTES + 1}, bytes_async=body))
-    monkeypatch.setattr(rtvprocessing.obs, "get_async", download)
+    body = Mock(side_effect=AssertionError("Oversized body was downloaded"))
+    monkeypatch.setattr(datasetapi.obs, "head_async", AsyncMock(return_value={"size": datasetapi.MAX_METADATA_BYTES + 1}))
+    monkeypatch.setattr(datasetmetadata.obs, "get_range", body)
     path = f"/datasets/{datasetcatalog.encode_dataset_id(file_key())}/metadata"
     assert get(path).status_code == 413
-    body.assert_not_awaited()
+    body.assert_not_called()
+
+
+def test_metadata_range_storage_errors_remain_gateway_errors(storage, netcdf_contents, monkeypatch):
+    key = file_key()
+    obs.put(storage, key, netcdf_contents)
+    monkeypatch.setattr(obs, "get_range", Mock(side_effect=obs.exceptions.GenericError("Storage unavailable")))
+    assert get(f"/datasets/{datasetcatalog.encode_dataset_id(key)}/metadata").status_code == 502
 
 
 def test_latest_endpoint_returns_no_content_when_bounded_search_is_empty(storage):
@@ -325,7 +364,7 @@ def test_storage_errors_and_missing_configuration_have_stable_http_errors(storag
     monkeypatch.setattr(rtvfiles, "_list_files", listing)
     assert get("/datasets", {"latest": True, "lookback_periods": 1}).status_code == 502
     download = AsyncMock(side_effect=OSError("backend error"))
-    monkeypatch.setattr(datasetapi, "dl_file", download)
+    monkeypatch.setattr(datasetapi.obs, "head_async", download)
     assert get(f"/datasets/{datasetcatalog.encode_dataset_id(file_key())}/metadata").status_code == 502
     monkeypatch.setattr(settings, "bucket", None)
     assert get("/datasets", {"latest": True}).status_code == 503

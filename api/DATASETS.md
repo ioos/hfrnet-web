@@ -120,11 +120,15 @@ The endpoint does not derive, mask, or normalize scientific variables. Missing
 units remain null; nonfinite JSON numbers become null.
 
 `coordinate_limit` is between 0 and 1000, inclusive. With zero, no variable
-values are loaded by the NetCDF inspector. The current shared downloader still
-transfers the complete file before inspection; this endpoint is not a
-metadata-only S3 transfer. Files larger than 256 MiB are rejected from the
-object's reported size before downloading its body. NetCDF inspection runs off
-the event loop and closes the file before returning.
+values are loaded by the NetCDF inspector. Xarray opens a seekable S3 range
+reader, fetching only the blocks needed for NetCDF headers and requested
+coordinate samples. Reads use 64 KiB blocks with a cache of up to 2 MiB per
+inspection; a block can also contain nearby scientific data. The complete file
+is not downloaded first. Files larger than 256 MiB are rejected from the
+object's reported size before any range reads. NetCDF inspection runs off
+the event loop and closes the file before returning. Metadata is returned
+directly as JSON; the response model documents the schema without validating
+the NetCDF-derived response through Pydantic again.
 
 Only valid totals keys under the configured root can be described. Arbitrary
 URLs, other buckets, and unrelated object paths are not accepted.
@@ -138,7 +142,7 @@ URLs, other buckets, and unrelated object paths are not accepted.
 | 404 | A valid dataset ID references a missing file |
 | 502 | Object storage is unavailable |
 | 503 | Dataset storage or HTTPS-link configuration is missing/invalid |
-| 504 | Discovery or download exceeded 30 seconds |
+| 504 | Discovery or metadata inspection exceeded 30 seconds |
 
 The existing `/latest` route also uses bounded lookup with `lookback_periods`
 between 1 and 744 (default 168). Its existing response shape and `any`/`all`

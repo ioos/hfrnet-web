@@ -2,9 +2,11 @@
 
 import io
 import math
+from collections import OrderedDict
 from datetime import date, datetime
 
 import numpy as np
+import obstore as obs
 import xarray as xr
 
 
@@ -21,6 +23,73 @@ COORDINATE_NAMES = {
 }
 ENCODING_FIELDS = ("_FillValue", "missing_value", "scale_factor", "add_offset", "units", "calendar",
                    "chunksizes", "contiguous", "zlib", "complevel", "shuffle", "fletcher32", "endian")
+
+
+class _ObjectReader(io.RawIOBase):
+    """Seekable range reader with a bounded cache for repeated HDF5 header reads."""
+
+    BLOCK_SIZE = 64 * 1024
+    CACHE_BLOCKS = 32
+
+    def __init__(self, store, key, size):
+        super().__init__()
+        self.store, self.key, self.size = store, key, size
+        self.position = 0
+        self.blocks = OrderedDict()
+
+    def readable(self):
+        return True
+
+    def seekable(self):
+        return True
+
+    def tell(self):
+        return self.position
+
+    def seek(self, offset, whence=io.SEEK_SET):
+        self._checkClosed()
+        if whence == io.SEEK_CUR:
+            offset += self.position
+        elif whence == io.SEEK_END:
+            offset += self.size
+        elif whence != io.SEEK_SET:
+            raise ValueError("Invalid seek origin")
+        if offset < 0:
+            raise ValueError("Negative seek position")
+        self.position = offset
+        return offset
+
+    def readinto(self, buffer):
+        self._checkClosed()
+        count = min(len(buffer), max(0, self.size - self.position))
+        copied = 0
+        while copied < count:
+            start = self.position // self.BLOCK_SIZE * self.BLOCK_SIZE
+            if start not in self.blocks:
+                self.blocks[start] = bytes(obs.get_range(
+                    self.store, self.key, start=start, end=min(start + self.BLOCK_SIZE, self.size)))
+                if len(self.blocks) > self.CACHE_BLOCKS:
+                    self.blocks.popitem(last=False)
+            self.blocks.move_to_end(start)
+            block = self.blocks[start]
+            offset = self.position - start
+            length = min(count - copied, len(block) - offset)
+            if length <= 0:
+                raise OSError("Unexpected end of object")
+            buffer[copied:copied + length] = block[offset:offset + length]
+            copied += length
+            self.position += length
+        return copied
+
+    def close(self):
+        self.blocks.clear()
+        super().close()
+
+
+def describe_object(store, key, size, coordinate_limit=10):
+    """Read NetCDF headers and coordinate samples using S3 byte ranges."""
+    with io.BufferedReader(_ObjectReader(store, key, size)) as stream:
+        return describe_netcdf(stream, coordinate_limit)
 
 
 def json_value(value):
@@ -67,7 +136,8 @@ def coordinate_sample(variable, limit):
 def describe_netcdf(data, coordinate_limit=10):
     # Preserve stored types, dimensions, fill/scale attributes, and time units.
     # Do not create coordinate indexes, which would eagerly load entire axes.
-    with xr.open_dataset(io.BytesIO(data), engine="h5netcdf", decode_cf=False,
+    source = data if hasattr(data, "read") else io.BytesIO(data)
+    with xr.open_dataset(source, engine="h5netcdf", decode_cf=False,
                          create_default_indexes=False) as dataset:
         coordinates = set(dataset.coords)
         coordinates.update(str(dataset.attrs.get("coordinates", "")).split())
@@ -84,6 +154,7 @@ def describe_netcdf(data, coordinate_limit=10):
                 "attributes": attributes,
                 "encoding": json_value({key: variable.encoding[key] for key in ENCODING_FIELDS
                                         if key in variable.encoding}),
+                "velocity_role": None, "role_identified_by": None,
             }
             standard_name = variable.attrs.get("standard_name")
             role = VELOCITY_STANDARD_NAMES.get(standard_name)

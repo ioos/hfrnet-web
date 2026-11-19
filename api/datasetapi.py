@@ -4,15 +4,18 @@ import asyncio
 import logging
 from typing import Annotated, Any
 
+import obstore as obs
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 from obstore.exceptions import BaseError as ObjectStoreError
+from obstore.exceptions import NotFoundError
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
+import config as settings
 from datasetcatalog import (DatasetRecord, DatasetResults, DatasetSearch, dataset_record,
                             decode_dataset_id, discovery_options, search_datasets)
-from datasetmetadata import describe_netcdf
-from rtvprocessing import dl_file
+from datasetmetadata import describe_object
 
 
 router = APIRouter(prefix="/datasets", tags=["datasets"])
@@ -74,24 +77,26 @@ async def get_dataset_metadata(
     dataset_id: str,
     coordinate_limit: Annotated[int, Query(ge=0, le=1000)] = 10,
 ):
-    """Describe native variables and bounded samples of stored coordinate values."""
+    """Read native NetCDF metadata with xarray using bounded S3 range reads."""
     key = decode_dataset_id(dataset_id)
     record = dataset_record(key)
     try:
         async with asyncio.timeout(30):
-            downloaded = await dl_file(key, max_bytes=MAX_METADATA_BYTES)
-        if downloaded is None:
-            raise FileNotFoundError
-    except FileNotFoundError:
+            info = await obs.head_async(settings.s3_store, key)
+            if info["size"] > MAX_METADATA_BYTES:
+                raise HTTPException(status_code=413, detail="Dataset exceeds the metadata inspection size limit")
+            try:
+                metadata = await run_in_threadpool(
+                    describe_object, settings.s3_store, key, info["size"], coordinate_limit)
+            except (ValueError, OSError, TypeError):
+                logger.exception("Unreadable NetCDF dataset")
+                raise HTTPException(status_code=422, detail="Dataset is not a readable totals NetCDF file") from None
+    except (FileNotFoundError, NotFoundError):
         raise HTTPException(status_code=404, detail="Dataset not found") from None
     except TimeoutError:
-        raise HTTPException(status_code=504, detail="Dataset download timed out") from None
+        raise HTTPException(status_code=504, detail="Dataset metadata inspection timed out") from None
     except (ObjectStoreError, OSError):
         logger.exception("Dataset metadata storage error")
         raise HTTPException(status_code=502, detail="Dataset storage is unavailable") from None
-    try:
-        metadata = await run_in_threadpool(describe_netcdf, downloaded["data"], coordinate_limit)
-    except (ValueError, OSError, TypeError):
-        logger.exception("Unreadable NetCDF dataset")
-        raise HTTPException(status_code=422, detail="Dataset is not a readable totals NetCDF file") from None
-    return {"dataset": record.model_dump(mode="json"), **metadata}
+    # Keep the response model for OpenAPI; xarray's normalized metadata is already JSON-ready.
+    return JSONResponse({"dataset": record.model_dump(mode="json"), **metadata})
